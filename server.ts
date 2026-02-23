@@ -55,6 +55,7 @@ app.use(express.json());
 
 // Simple Ping Route
 app.get("/api/ping", (req, res) => {
+  console.log("Ping received");
   res.json({ status: "ok", message: "API server is running" });
 });
 
@@ -485,28 +486,41 @@ app.use((err: any, req: any, res: any, next: any) => {
   console.error("API Error:", err);
   res.status(err.status || 500).json({ 
     success: false, 
-    message: err.message || "Internal Server Error" 
+    message: err.message || "Internal Server Error",
+    stack: process.env.NODE_ENV !== "production" ? err.stack : undefined
   });
 });
 
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else if (!process.env.VERCEL) {
-    app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "dist", "index.html"));
-    });
-  }
+  try {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("Starting Vite in middleware mode...");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+      console.log("Vite middleware loaded.");
+    } else if (!process.env.VERCEL) {
+      app.use(express.static(path.join(__dirname, "dist")));
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(__dirname, "dist", "index.html"));
+      });
+    }
 
-  if (!process.env.VERCEL) {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
+    if (!process.env.VERCEL) {
+      app.listen(PORT, "0.0.0.0", () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+      });
+    }
+  } catch (err) {
+    console.error("CRITICAL: Failed to start server:", err);
+    // In dev mode, we still want the server to listen if possible so we can see errors
+    if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+      app.listen(PORT, "0.0.0.0", () => {
+        console.log(`Server running in ERROR mode on http://localhost:${PORT}`);
+      });
+    }
   }
 }
 

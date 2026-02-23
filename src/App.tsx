@@ -144,7 +144,11 @@ export default function App() {
       const pingResult = await safeFetch('/api/ping');
       if (!pingResult.ok) {
         setDbStatus('offline');
-        setDbErrorMessage(`Server API tidak dapat dijangkau (Status: ${pingResult.status}). Pastikan server sedang berjalan.`);
+        let msg = `Server API tidak dapat dijangkau (Status: ${pingResult.status}). Pastikan server sedang berjalan.`;
+        if (pingResult.data?.stack) {
+          msg += `\n\nStack: ${pingResult.data.stack}`;
+        }
+        setDbErrorMessage(msg);
         if (dbStatus === 'checking') setShowSetupModal(true);
         return;
       }
@@ -153,7 +157,10 @@ export default function App() {
       const { data, ok, error } = result;
       setDbStatus(ok ? 'online' : 'offline');
       if (!ok) {
-        const msg = data?.message || data?.details || error || 'Gagal terhubung ke database melalui API';
+        let msg = data?.message || data?.details || error || 'Gagal terhubung ke database melalui API';
+        if (data?.stack) {
+          msg += `\n\nStack: ${data.stack}`;
+        }
         setDbErrorMessage(msg);
         if (dbStatus === 'checking') {
           setShowSetupModal(true);
@@ -1687,7 +1694,7 @@ export default function App() {
                 {dbErrorMessage && (
                   <div className="bg-red-50 p-4 rounded-xl border border-red-100">
                     <p className="text-xs font-bold text-red-600 uppercase tracking-widest mb-1">Error Saat Ini:</p>
-                    <p className="text-sm text-red-700 font-mono break-all">{dbErrorMessage}</p>
+                    <p className="text-sm text-red-700 font-mono break-all whitespace-pre-wrap">{dbErrorMessage}</p>
                   </div>
                 )}
               </div>
