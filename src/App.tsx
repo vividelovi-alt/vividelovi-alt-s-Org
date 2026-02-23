@@ -27,7 +27,8 @@ import {
   Settings,
   Trash2,
   ShieldCheck,
-  Plus
+  Plus,
+  Database
 } from 'lucide-react';
 
 // --- Types ---
@@ -110,6 +111,7 @@ export default function App() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [studentAnswers, setStudentAnswers] = useState<Record<number, string>>({});
   const [gradingScores, setGradingScores] = useState<Record<number, number>>({});
+  const [dbStatus, setDbStatus] = useState<'checking' | 'online' | 'offline'>('checking');
 
   // Teacher Create Exam State
   const [newExamSubject, setNewExamSubject] = useState('');
@@ -131,6 +133,16 @@ export default function App() {
       return { data: null, ok: false, status: 0, error: "Network error" };
     }
   };
+
+  useEffect(() => {
+    const checkDb = async () => {
+      const { ok } = await safeFetch('/api/health/supabase');
+      setDbStatus(ok ? 'online' : 'offline');
+    };
+    checkDb();
+    const interval = setInterval(checkDb, 30000); // Check every 30s
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -1584,15 +1596,36 @@ export default function App() {
     </div>
   );
 
+  const renderDbStatus = () => (
+    <div className="fixed bottom-4 right-4 z-50">
+      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm text-[10px] font-bold uppercase tracking-wider transition-all ${
+        dbStatus === 'online' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+        dbStatus === 'offline' ? 'bg-red-50 text-red-600 border-red-100' : 
+        'bg-slate-50 text-slate-400 border-slate-100'
+      }`}>
+        <Database size={12} className={dbStatus === 'checking' ? 'animate-pulse' : ''} />
+        <span>Database {dbStatus}</span>
+        <div className={`w-1.5 h-1.5 rounded-full ${
+          dbStatus === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 
+          dbStatus === 'offline' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 
+          'bg-slate-300'
+        }`} />
+      </div>
+    </div>
+  );
+
   return (
     <div className="font-sans antialiased text-slate-900">
-      {view === 'landing' && renderLanding()}
-      {view === 'login' && renderLogin()}
-      {view === 'dashboard' && renderDashboard()}
-      {view === 'exam' && renderExam()}
-      {view === 'create_exam' && renderCreateExam()}
-      {view === 'grade_submission' && renderGradeSubmission()}
-      {view === 'admin' && renderAdminDashboard()}
+      {renderDbStatus()}
+      <AnimatePresence mode="wait">
+        {view === 'landing' && renderLanding()}
+        {view === 'login' && renderLogin()}
+        {view === 'dashboard' && renderDashboard()}
+        {view === 'exam' && renderExam()}
+        {view === 'create_exam' && renderCreateExam()}
+        {view === 'grade_submission' && renderGradeSubmission()}
+        {view === 'admin' && renderAdminDashboard()}
+      </AnimatePresence>
     </div>
   );
 }

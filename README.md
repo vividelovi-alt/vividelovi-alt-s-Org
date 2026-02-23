@@ -15,66 +15,11 @@ Aplikasi manajemen ujian sekolah modern yang dibangun dengan React, Express, dan
 ## Persiapan Deployment
 
 ### 1. Supabase Setup
-Buat tabel-tabel berikut di Supabase SQL Editor:
+Gunakan file `database.sql` yang tersedia di root proyek ini untuk membuat tabel di Supabase SQL Editor. File tersebut berisi skema lengkap termasuk relasi antar tabel dan indeks performa.
 
-```sql
--- Tabel Users
-CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  role TEXT CHECK (role IN ('student', 'teacher', 'admin')),
-  identifier TEXT UNIQUE,
-  name TEXT,
-  password TEXT,
-  class TEXT,
-  subject TEXT
-);
-
--- Tabel Classes
-CREATE TABLE classes (
-  id SERIAL PRIMARY KEY,
-  name TEXT UNIQUE
-);
-
--- Tabel Exams
-CREATE TABLE exams (
-  id SERIAL PRIMARY KEY,
-  teacher_id INTEGER REFERENCES users(id),
-  subject TEXT,
-  class TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Tabel Questions
-CREATE TABLE questions (
-  id SERIAL PRIMARY KEY,
-  exam_id INTEGER REFERENCES exams(id) ON DELETE CASCADE,
-  type TEXT CHECK (type IN ('multiple_choice', 'essay')),
-  question_text TEXT,
-  option_a TEXT,
-  option_b TEXT,
-  option_c TEXT,
-  option_d TEXT,
-  correct_answer TEXT
-);
-
--- Tabel Submissions
-CREATE TABLE submissions (
-  id SERIAL PRIMARY KEY,
-  student_id INTEGER REFERENCES users(id),
-  exam_id INTEGER REFERENCES exams(id),
-  submitted_at TIMESTAMPTZ DEFAULT NOW(),
-  score REAL
-);
-
--- Tabel Answers
-CREATE TABLE answers (
-  id SERIAL PRIMARY KEY,
-  submission_id INTEGER REFERENCES submissions(id) ON DELETE CASCADE,
-  question_id INTEGER REFERENCES questions(id),
-  answer_text TEXT,
-  score REAL DEFAULT 0
-);
-```
+1. Buka [Dashboard Supabase](https://app.supabase.com/).
+2. Pilih proyek Anda -> **SQL Editor**.
+3. Salin isi dari `database.sql` dan jalankan (Run).
 
 ### 2. Environment Variables
 Atur variabel lingkungan berikut di Vercel atau file `.env`:
