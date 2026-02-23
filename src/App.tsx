@@ -141,7 +141,11 @@ export default function App() {
       const { data, ok } = await safeFetch('/api/health/supabase');
       setDbStatus(ok ? 'online' : 'offline');
       if (!ok) {
-        setDbErrorMessage(data?.details || data?.message || 'Gagal terhubung ke database');
+        setDbErrorMessage(data?.message || data?.details || 'Gagal terhubung ke database');
+        // Only show modal automatically if it's the first check and it fails
+        if (dbStatus === 'checking') {
+          setShowSetupModal(true);
+        }
       } else {
         setDbErrorMessage(null);
       }
@@ -1637,11 +1641,15 @@ export default function App() {
                 <section className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
                   <h4 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
                     <span className="w-6 h-6 bg-slate-900 text-white rounded-full flex items-center justify-center text-xs">1</span>
-                    Setup Supabase
+                    Setup Tabel (SQL)
                   </h4>
                   <p className="text-sm text-slate-600 mb-4">
-                    Buat proyek baru di <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-indigo-600 font-bold underline">Supabase</a>, lalu buka <strong>SQL Editor</strong> dan jalankan script dari file <code>database.sql</code> yang ada di proyek ini.
+                    Buka <strong>SQL Editor</strong> di Dashboard Supabase, lalu salin dan jalankan seluruh isi file <code>database.sql</code>. Ini akan membuat tabel <code>users</code>, <code>classes</code>, dll.
                   </p>
+                  <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl text-[10px] text-amber-700 font-medium">
+                    <p className="font-bold mb-1">⚠️ PENTING:</p>
+                    Jika tabel belum dibuat, aplikasi akan tetap berstatus "Offline" meskipun API Key sudah benar.
+                  </div>
                 </section>
 
                 <section className="bg-slate-50 p-6 rounded-2xl border border-slate-100">

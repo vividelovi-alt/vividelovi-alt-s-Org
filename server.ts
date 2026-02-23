@@ -60,9 +60,19 @@ app.get("/api/health/supabase", asyncHandler(async (req, res) => {
     const { data, error } = await client.from('users').select('count', { count: 'exact', head: true });
     if (error) {
       console.error("Supabase Health Check Error:", error);
+      
+      let friendlyMessage = "Koneksi database gagal";
+      if (error.message.includes("relation \"users\" does not exist")) {
+        friendlyMessage = "Tabel database belum dibuat. Silakan jalankan script SQL di Supabase.";
+      } else if (error.message.includes("Invalid API key") || error.message.includes("invalid base64")) {
+        friendlyMessage = "API Key Supabase tidak valid. Periksa kembali SUPABASE_KEY.";
+      } else if (error.message.includes("Failed to fetch")) {
+        friendlyMessage = "Tidak dapat menjangkau URL Supabase. Periksa kembali SUPABASE_URL.";
+      }
+
       return res.status(500).json({ 
         status: "error", 
-        message: "Database connection failed", 
+        message: friendlyMessage, 
         details: error.message 
       });
     }
@@ -71,7 +81,7 @@ app.get("/api/health/supabase", asyncHandler(async (req, res) => {
     console.error("Supabase Initialization Error:", err);
     res.status(500).json({ 
       status: "error", 
-      message: "Supabase initialization failed", 
+      message: "Konfigurasi environment variable belum lengkap", 
       details: err.message 
     });
   }
