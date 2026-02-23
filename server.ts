@@ -10,20 +10,56 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+// Lazy initialization of Supabase client to prevent crash on startup if keys are missing
+let supabaseClient: any = null;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error("CRITICAL ERROR: SUPABASE_URL or SUPABASE_KEY is not defined in environment variables.");
-  if (!process.env.VERCEL) process.exit(1);
+function getSupabase() {
+  if (!supabaseClient) {
+    const supabaseUrl = process.env.SUPABASE_URL?.trim();
+    const supabaseKey = process.env.SUPABASE_KEY?.trim();
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("ERROR: SUPABASE_URL or SUPABASE_KEY is not defined in environment variables.");
+      throw new Error("Supabase configuration missing. Please set SUPABASE_URL and SUPABASE_KEY.");
+    }
+
+    try {
+      supabaseClient = createClient(supabaseUrl, supabaseKey);
+    } catch (err) {
+      console.error("Failed to initialize Supabase client:", err);
+      throw err;
+    }
+  }
+  return supabaseClient;
 }
 
-const supabase = createClient(supabaseUrl || "", supabaseKey || "");
+// Proxy object to allow using 'supabase' globally while supporting lazy initialization
+const supabase: any = new Proxy({}, {
+  get(target, prop) {
+    return getSupabase()[prop];
+  }
+});
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// Health Check for Supabase
+app.get("/api/health/supabase", async (req, res) => {
+  try {
+    const client = getSupabase();
+    const { data, error } = await client.from('users').select('count', { count: 'exact', head: true });
+    if (error) throw error;
+    res.json({ status: "connected", total_users: data });
+  } catch (error) {
+    res.status(500).json({ 
+      status: "error", 
+      message: (error as Error).message,
+      hint: "Check your SUPABASE_URL and SUPABASE_KEY in environment variables."
+    });
+  }
+});
 
 // API Routes
 app.post("/api/login", async (req, res) => {
@@ -31,14 +67,18 @@ app.post("/api/login", async (req, res) => {
   identifier = identifier?.trim();
   
   console.log(`Login attempt: ${identifier} as ${role}`);
-
-  // Emergency check for admin user
-  if (role === 'admin' && identifier === 'admin') {
-    const { data: adminExists } = await supabase.from('users').select('*').eq('identifier', 'admin').single();
-    if (!adminExists) {
-      console.log("Admin user missing during login attempt, creating now...");
-      await supabase.from('users').insert([{ role: 'admin', identifier: 'admin', name: 'Administrator', password: 'admin123' }]);
+  
+  try {
+    // Emergency check for admin user
+    if (role === 'admin' && identifier === 'admin') {
+      const { data: adminExists } = await supabase.from('users').select('*').eq('identifier', 'admin').single();
+      if (!adminExists) {
+        console.log("Admin user missing during login attempt, creating now...");
+        await supabase.from('users').insert([{ role: 'admin', identifier: 'admin', name: 'Administrator', password: 'admin123' }]);
+      }
     }
+  } catch (err) {
+    console.warn("Emergency admin check failed (likely table doesn't exist yet):", (err as Error).message);
   }
   
   const { data: user, error } = await supabase
