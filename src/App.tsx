@@ -113,6 +113,7 @@ export default function App() {
   const [gradingScores, setGradingScores] = useState<Record<number, number>>({});
   const [dbStatus, setDbStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
+  const [showSetupModal, setShowSetupModal] = useState(false);
 
   // Teacher Create Exam State
   const [newExamSubject, setNewExamSubject] = useState('');
@@ -1604,13 +1605,96 @@ export default function App() {
     </div>
   );
 
+  const renderSetupModal = () => (
+    <AnimatePresence>
+      {showSetupModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowSetupModal(false)}
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="relative bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+          >
+            <div className="p-8 overflow-y-auto">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center border border-amber-100">
+                  <Settings className="text-amber-500 w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-900">Konfigurasi Database</h3>
+                  <p className="text-slate-500 text-sm">Ikuti langkah berikut untuk mengaktifkan aplikasi</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <section className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                  <h4 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <span className="w-6 h-6 bg-slate-900 text-white rounded-full flex items-center justify-center text-xs">1</span>
+                    Setup Supabase
+                  </h4>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Buat proyek baru di <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-indigo-600 font-bold underline">Supabase</a>, lalu buka <strong>SQL Editor</strong> dan jalankan script dari file <code>database.sql</code> yang ada di proyek ini.
+                  </p>
+                </section>
+
+                <section className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                  <h4 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <span className="w-6 h-6 bg-slate-900 text-white rounded-full flex items-center justify-center text-xs">2</span>
+                    Environment Variables
+                  </h4>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Salin <strong>Project URL</strong> dan <strong>service_role key</strong> dari Supabase (Settings {'>'} API), lalu masukkan ke pengaturan Environment Variables di platform ini:
+                  </p>
+                  <div className="space-y-2">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 font-mono text-xs flex justify-between items-center">
+                      <span className="text-slate-400">Key:</span>
+                      <span className="font-bold text-slate-700">SUPABASE_URL</span>
+                    </div>
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 font-mono text-xs flex justify-between items-center">
+                      <span className="text-slate-400">Key:</span>
+                      <span className="font-bold text-slate-700">SUPABASE_KEY</span>
+                    </div>
+                  </div>
+                </section>
+
+                {dbErrorMessage && (
+                  <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                    <p className="text-xs font-bold text-red-600 uppercase tracking-widest mb-1">Error Saat Ini:</p>
+                    <p className="text-sm text-red-700 font-mono break-all">{dbErrorMessage}</p>
+                  </div>
+                )}
+              </div>
+
+              <button 
+                onClick={() => setShowSetupModal(false)}
+                className="w-full mt-8 py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all"
+              >
+                Saya Mengerti
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+
   const renderDbStatus = () => (
     <div className="fixed bottom-4 right-4 z-50 group">
-      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm text-[10px] font-bold uppercase tracking-wider transition-all ${
-        dbStatus === 'online' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
-        dbStatus === 'offline' ? 'bg-red-50 text-red-600 border-red-100' : 
-        'bg-slate-50 text-slate-400 border-slate-100'
-      }`}>
+      <button 
+        onClick={() => setShowSetupModal(true)}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm text-[10px] font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
+          dbStatus === 'online' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+          dbStatus === 'offline' ? 'bg-red-50 text-red-600 border-red-100' : 
+          'bg-slate-50 text-slate-400 border-slate-100'
+        }`}
+      >
         <Database size={12} className={dbStatus === 'checking' ? 'animate-pulse' : ''} />
         <span>Database {dbStatus}</span>
         <div className={`w-1.5 h-1.5 rounded-full ${
@@ -1618,12 +1702,11 @@ export default function App() {
           dbStatus === 'offline' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 
           'bg-slate-300'
         }`} />
-      </div>
+      </button>
       {dbStatus === 'offline' && dbErrorMessage && (
         <div className="absolute bottom-full right-0 mb-2 w-64 bg-white p-3 rounded-2xl shadow-xl border border-red-100 text-[10px] text-red-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-          <p className="font-bold mb-1 uppercase tracking-widest">Error Detail:</p>
-          {dbErrorMessage}
-          <p className="mt-2 text-slate-400 italic">Pastikan SUPABASE_URL dan SUPABASE_KEY sudah benar di pengaturan Environment Variables.</p>
+          <p className="font-bold mb-1 uppercase tracking-widest">Klik untuk bantuan setup</p>
+          <p className="mt-1 opacity-70 line-clamp-2">{dbErrorMessage}</p>
         </div>
       )}
     </div>
@@ -1632,6 +1715,7 @@ export default function App() {
   return (
     <div className="font-sans antialiased text-slate-900">
       {renderDbStatus()}
+      {renderSetupModal()}
       <AnimatePresence mode="wait">
         {view === 'landing' && renderLanding()}
         {view === 'login' && renderLogin()}
