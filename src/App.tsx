@@ -124,24 +124,27 @@ export default function App() {
     try {
       const res = await fetch(url, options);
       const text = await res.text();
+      let data = null;
       try {
-        return { data: text ? JSON.parse(text) : null, ok: res.ok, status: res.status };
+        data = text ? JSON.parse(text) : null;
       } catch (e) {
         console.error("JSON Parse Error:", e, "Text:", text);
-        return { data: null, ok: false, status: res.status, error: "Invalid JSON response" };
       }
-    } catch (e) {
+      return { data, ok: res.ok, status: res.status, rawText: text };
+    } catch (e: any) {
       console.error("Fetch Error:", e);
-      return { data: null, ok: false, status: 0, error: "Network error" };
+      return { data: null, ok: false, status: 0, error: e.message || "Network error" };
     }
   };
 
   useEffect(() => {
     const checkDb = async () => {
-      const { data, ok } = await safeFetch('/api/health/supabase');
+      const result = await safeFetch('/api/health/supabase');
+      const { data, ok, error } = result;
       setDbStatus(ok ? 'online' : 'offline');
       if (!ok) {
-        setDbErrorMessage(data?.message || data?.details || 'Gagal terhubung ke database');
+        const msg = data?.message || data?.details || error || 'Gagal terhubung ke server API';
+        setDbErrorMessage(msg);
         // Only show modal automatically if it's the first check and it fails
         if (dbStatus === 'checking') {
           setShowSetupModal(true);

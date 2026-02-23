@@ -57,23 +57,28 @@ app.use(express.json());
 app.get("/api/health/supabase", asyncHandler(async (req, res) => {
   try {
     const client = getSupabase();
+    // Try to select from users table to verify schema
     const { data, error } = await client.from('users').select('count', { count: 'exact', head: true });
+    
     if (error) {
       console.error("Supabase Health Check Error:", error);
       
       let friendlyMessage = "Koneksi database gagal";
       if (error.message.includes("relation \"users\" does not exist")) {
-        friendlyMessage = "Tabel database belum dibuat. Silakan jalankan script SQL di Supabase.";
-      } else if (error.message.includes("Invalid API key") || error.message.includes("invalid base64")) {
-        friendlyMessage = "API Key Supabase tidak valid. Periksa kembali SUPABASE_KEY.";
-      } else if (error.message.includes("Failed to fetch")) {
-        friendlyMessage = "Tidak dapat menjangkau URL Supabase. Periksa kembali SUPABASE_URL.";
+        friendlyMessage = "Tabel 'users' tidak ditemukan. Pastikan Anda sudah menjalankan script SQL di Supabase SQL Editor.";
+      } else if (error.message.includes("Invalid API key") || error.message.includes("invalid base64") || error.status === 401) {
+        friendlyMessage = "API Key Supabase (SUPABASE_KEY) tidak valid atau salah tipe (gunakan service_role).";
+      } else if (error.message.includes("Failed to fetch") || error.status === 404) {
+        friendlyMessage = "URL Supabase (SUPABASE_URL) tidak valid atau tidak dapat dijangkau.";
+      } else if (error.code === 'PGRST301') {
+        friendlyMessage = "JWT Token expired atau API Key tidak valid.";
       }
 
       return res.status(500).json({ 
         status: "error", 
         message: friendlyMessage, 
-        details: error.message 
+        details: error.message,
+        code: error.code
       });
     }
     res.json({ status: "connected", total_users: data });
@@ -81,8 +86,8 @@ app.get("/api/health/supabase", asyncHandler(async (req, res) => {
     console.error("Supabase Initialization Error:", err);
     res.status(500).json({ 
       status: "error", 
-      message: "Konfigurasi environment variable belum lengkap", 
-      details: err.message 
+      message: err.message || "Konfigurasi environment variable belum lengkap", 
+      details: err.stack 
     });
   }
 }));
