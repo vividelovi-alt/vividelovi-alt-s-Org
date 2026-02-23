@@ -27,15 +27,15 @@ function getSupabase() {
       const missing = [];
       if (!supabaseUrl) missing.push("SUPABASE_URL");
       if (!supabaseKey) missing.push("SUPABASE_KEY");
-      console.error(`ERROR: Missing environment variables: ${missing.join(", ")}`);
-      throw new Error(`Konfigurasi Supabase tidak lengkap. Variabel yang hilang: ${missing.join(", ")}`);
+      console.warn(`Supabase configuration incomplete: ${missing.join(", ")}`);
+      return null;
     }
 
     try {
       supabaseClient = createClient(supabaseUrl, supabaseKey);
     } catch (err) {
       console.error("Failed to initialize Supabase client:", err);
-      throw err;
+      return null;
     }
   }
   return supabaseClient;
@@ -44,7 +44,11 @@ function getSupabase() {
 // Proxy object to allow using 'supabase' globally while supporting lazy initialization
 const supabase: any = new Proxy({}, {
   get(target, prop) {
-    return getSupabase()[prop];
+    const client = getSupabase();
+    if (!client) {
+      throw new Error("Supabase client not initialized. Check your environment variables (SUPABASE_URL, SUPABASE_KEY).");
+    }
+    return client[prop];
   }
 });
 
@@ -63,6 +67,13 @@ app.get("/api/ping", (req, res) => {
 app.get("/api/health/supabase", asyncHandler(async (req, res) => {
   try {
     const client = getSupabase();
+    if (!client) {
+      return res.status(500).json({ 
+        status: "error", 
+        message: "Konfigurasi Supabase (URL/Key) belum diatur di Environment Variables." 
+      });
+    }
+    
     // Try to select from users table to verify schema
     const { data, error } = await client.from('users').select('count', { count: 'exact', head: true });
     
@@ -524,6 +535,14 @@ async function startServer() {
   }
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("FATAL: Failed to start server:", err);
+  // Try to listen anyway so the process doesn't just exit and we can see logs
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running in EMERGENCY mode on http://localhost:${PORT}`);
+    });
+  }
+});
 
 export default app;

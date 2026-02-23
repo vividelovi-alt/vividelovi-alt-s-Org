@@ -127,9 +127,10 @@ export default function App() {
       const text = await res.text();
       let data = null;
       try {
-        data = text ? JSON.parse(text) : null;
+        data = text && (text.startsWith('{') || text.startsWith('[')) ? JSON.parse(text) : text;
       } catch (e) {
         console.error("JSON Parse Error:", e, "Text:", text);
+        data = text;
       }
       return { data, ok: res.ok, status: res.status, rawText: text };
     } catch (e: any) {
@@ -144,9 +145,16 @@ export default function App() {
       const pingResult = await safeFetch('/api/ping');
       if (!pingResult.ok) {
         setDbStatus('offline');
-        let msg = `Server API tidak dapat dijangkau (Status: ${pingResult.status}). Pastikan server sedang berjalan.`;
-        if (pingResult.data?.stack) {
-          msg += `\n\nStack: ${pingResult.data.stack}`;
+        let msg = `Server API tidak dapat dijangkau (Status: ${pingResult.status}).`;
+        const errorData = pingResult.data;
+        if (typeof errorData === 'string' && errorData) {
+          msg += `\nDetail: ${errorData}`;
+        } else if (errorData?.message) {
+          msg += `\nDetail: ${errorData.message}`;
+        }
+        
+        if (errorData?.stack) {
+          msg += `\n\nStack: ${errorData.stack}`;
         }
         setDbErrorMessage(msg);
         if (dbStatus === 'checking') setShowSetupModal(true);
@@ -157,7 +165,7 @@ export default function App() {
       const { data, ok, error } = result;
       setDbStatus(ok ? 'online' : 'offline');
       if (!ok) {
-        let msg = data?.message || data?.details || error || 'Gagal terhubung ke database melalui API';
+        let msg = (typeof data === 'string' ? data : (data?.message || data?.details)) || error || 'Gagal terhubung ke database melalui API';
         if (data?.stack) {
           msg += `\n\nStack: ${data.stack}`;
         }
