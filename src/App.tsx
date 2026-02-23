@@ -234,10 +234,11 @@ export default function App() {
 
   // --- Admin Actions ---
   const handleAdminAction = async (action: 'add' | 'edit' | 'delete', type: 'class' | 'student' | 'teacher', id?: number) => {
+    const pluralType = type === 'class' ? 'classes' : `${type}s`;
     if (action === 'delete') {
       if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) return;
       try {
-        const { ok } = await safeFetch(`/api/admin/${type}s/${id}`, { method: 'DELETE' });
+        const { ok } = await safeFetch(`/api/admin/${pluralType}/${id}`, { method: 'DELETE' });
         if (ok) fetchAdminData();
       } catch (err) { console.error(err); }
       return;
@@ -262,7 +263,8 @@ export default function App() {
   const saveAdminData = async (e: React.FormEvent) => {
     e.preventDefault();
     const method = editingItem ? 'PUT' : 'POST';
-    const url = `/api/admin/${modalType}s${editingItem ? `/${editingItem.id}` : ''}`;
+    const pluralType = modalType === 'class' ? 'classes' : `${modalType}s`;
+    const url = `/api/admin/${pluralType}${editingItem ? `/${editingItem.id}` : ''}`;
     
     try {
       const { data, ok } = await safeFetch(url, {

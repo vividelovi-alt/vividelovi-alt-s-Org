@@ -347,20 +347,29 @@ app.get("/api/admin/classes", asyncHandler(async (req, res) => {
 app.post("/api/admin/classes", asyncHandler(async (req, res) => {
   const { name } = req.body;
   const { error } = await supabase.from('classes').insert([{ name }]);
-  if (error) return res.status(400).json({ success: false, message: "Kelas sudah ada atau data tidak valid" });
+  if (error) {
+    console.error("Error adding class:", error);
+    return res.status(400).json({ success: false, message: error.message || "Gagal menambah kelas" });
+  }
   res.json({ success: true });
 }));
 
 app.put("/api/admin/classes/:id", asyncHandler(async (req, res) => {
   const { name } = req.body;
-  const { error } = await supabase.from('classes').update({ name }).eq('id', req.params.id);
-  if (error) return res.status(400).json({ success: false, message: "Gagal update kelas" });
+  const { error } = await supabase.from('classes').update({ name }).eq('id', parseInt(req.params.id));
+  if (error) {
+    console.error("Error updating class:", error);
+    return res.status(400).json({ success: false, message: error.message || "Gagal update kelas" });
+  }
   res.json({ success: true });
 }));
 
 app.delete("/api/admin/classes/:id", asyncHandler(async (req, res) => {
-  const { error } = await supabase.from('classes').delete().eq('id', req.params.id);
-  if (error) return res.status(400).json({ success: false, message: "Gagal hapus kelas" });
+  const { error } = await supabase.from('classes').delete().eq('id', parseInt(req.params.id));
+  if (error) {
+    console.error("Error deleting class:", error);
+    return res.status(400).json({ success: false, message: error.message || "Gagal hapus kelas" });
+  }
   res.json({ success: true });
 }));
 
@@ -372,19 +381,29 @@ app.get("/api/admin/students", asyncHandler(async (req, res) => {
 app.post("/api/admin/students", asyncHandler(async (req, res) => {
   const { identifier, name, password, class: studentClass } = req.body;
   const { error } = await supabase.from('users').insert([{ role: 'student', identifier, name, password, class: studentClass }]);
-  if (error) return res.status(400).json({ success: false, message: "NIS sudah terdaftar atau data tidak valid" });
+  if (error) {
+    console.error("Error adding student:", error);
+    return res.status(400).json({ success: false, message: error.message || "Gagal menambah siswa" });
+  }
   res.json({ success: true });
 }));
 
 app.put("/api/admin/students/:id", asyncHandler(async (req, res) => {
   const { identifier, name, password, class: studentClass } = req.body;
-  const { error } = await supabase.from('users').update({ identifier, name, password, class: studentClass }).eq('id', req.params.id);
-  if (error) return res.status(400).json({ success: false, message: "Gagal update siswa" });
+  const { error } = await supabase.from('users').update({ identifier, name, password, class: studentClass }).eq('id', parseInt(req.params.id));
+  if (error) {
+    console.error("Error updating student:", error);
+    return res.status(400).json({ success: false, message: error.message || "Gagal update siswa" });
+  }
   res.json({ success: true });
 }));
 
 app.delete("/api/admin/students/:id", asyncHandler(async (req, res) => {
-  await supabase.from('users').delete().eq('id', req.params.id);
+  const { error } = await supabase.from('users').delete().eq('id', parseInt(req.params.id));
+  if (error) {
+    console.error("Error deleting student:", error);
+    return res.status(400).json({ success: false, message: "Gagal hapus siswa" });
+  }
   res.json({ success: true });
 }));
 
@@ -396,19 +415,29 @@ app.get("/api/admin/teachers", asyncHandler(async (req, res) => {
 app.post("/api/admin/teachers", asyncHandler(async (req, res) => {
   const { identifier, name, password, subject } = req.body;
   const { error } = await supabase.from('users').insert([{ role: 'teacher', identifier, name, password, subject }]);
-  if (error) return res.status(400).json({ success: false, message: "NIP sudah terdaftar atau data tidak valid" });
+  if (error) {
+    console.error("Error adding teacher:", error);
+    return res.status(400).json({ success: false, message: error.message || "Gagal menambah guru" });
+  }
   res.json({ success: true });
 }));
 
 app.put("/api/admin/teachers/:id", asyncHandler(async (req, res) => {
   const { identifier, name, password, subject } = req.body;
-  const { error } = await supabase.from('users').update({ identifier, name, password, subject }).eq('id', req.params.id);
-  if (error) return res.status(400).json({ success: false, message: "Gagal update guru" });
+  const { error } = await supabase.from('users').update({ identifier, name, password, subject }).eq('id', parseInt(req.params.id));
+  if (error) {
+    console.error("Error updating teacher:", error);
+    return res.status(400).json({ success: false, message: error.message || "Gagal update guru" });
+  }
   res.json({ success: true });
 }));
 
 app.delete("/api/admin/teachers/:id", asyncHandler(async (req, res) => {
-  await supabase.from('users').delete().eq('id', req.params.id);
+  const { error } = await supabase.from('users').delete().eq('id', parseInt(req.params.id));
+  if (error) {
+    console.error("Error deleting teacher:", error);
+    return res.status(400).json({ success: false, message: "Gagal hapus guru" });
+  }
   res.json({ success: true });
 }));
 

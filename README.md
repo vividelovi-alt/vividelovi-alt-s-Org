@@ -26,6 +26,13 @@ Atur variabel lingkungan berikut di Vercel atau file `.env`:
 - `SUPABASE_URL`: URL API Supabase Anda.
 - `SUPABASE_KEY`: Service Role Key atau Anon Key Supabase Anda.
 
+## Deployment ke Vercel
+Aplikasi ini sudah dikonfigurasi untuk Vercel.
+1. Hubungkan repository ke Vercel.
+2. Pastikan **Framework Preset** diatur ke `Vite` atau `Other`.
+3. Masukkan **Environment Variables** (`SUPABASE_URL` dan `SUPABASE_KEY`).
+4. Vercel akan otomatis menjalankan `npm run build` dan menggunakan `vercel.json` untuk routing.
+
 ## Cara Menjalankan Lokal
 1. Clone repository.
 2. Jalankan `npm install`.
