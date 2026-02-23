@@ -25,6 +25,14 @@ const PORT = 3000;
 
 app.use(express.json());
 
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof SyntaxError && (err as any).status === 400 && 'body' in err) {
+    console.error('Bad JSON:', err.message);
+    return res.status(400).send({ success: false, message: 'Invalid JSON payload' });
+  }
+  next();
+});
+
 // API Routes
 app.post("/api/login", async (req, res) => {
   let { identifier, password, role } = req.body;
