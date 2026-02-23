@@ -30,9 +30,6 @@ import {
   Plus
 } from 'lucide-react';
 
-
-
-
 // --- Types ---
 
 type Role = 'student' | 'teacher' | 'admin' | null;
@@ -84,306 +81,7 @@ interface AnswerDetail extends Question {
   score: number;
 }
 
-// --- Helper function ---
-const safeJsonParse = async (response: Response) => {
-  const text = await response.text();
-  if (!text) {
-    return null;
-  }
-  try {
-    return JSON.parse(text);
-  } catch (err) {
-    console.error('Failed to parse JSON response:', text);
-    throw new Error('Invalid JSON response from server.');
-  }
-};
-
 // --- Components ---
-
-const ExamUI: React.FC<any> = ({ activeExam, questions, studentAnswers, setStudentAnswers, submitExam }) => (
-  <div className="min-h-screen bg-slate-50 p-6">
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 mb-8">
-        <h2 className="text-3xl font-bold text-slate-900">{activeExam?.subject}</h2>
-        <p className="text-slate-500">Kelas {activeExam?.class}</p>
-      </div>
-
-      <div className="space-y-6">
-        {questions.map((q: any, idx: number) => (
-          <motion.div
-            key={q.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm"
-          >
-            <div className="flex items-start gap-4 mb-6">
-              <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">
-                {idx + 1}
-              </div>
-              <div>
-                <h4 className="font-bold text-slate-900 mb-2">{q.question_text}</h4>
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  {q.type === 'multiple_choice' ? 'Pilihan Ganda' : 'Essai'}
-                </div>
-              </div>
-            </div>
-
-            {q.type === 'multiple_choice' ? (
-              <div className="space-y-3">
-                {['A', 'B', 'C', 'D'].map(opt => (
-                  <label key={opt} className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all cursor-pointer ${studentAnswers[q.id] === opt ? 'bg-indigo-50 border-indigo-500' : 'border-slate-200 hover:border-slate-300'}`}>
-                    <input 
-                      type="radio" 
-                      name={`question-${q.id}`}
-                      value={opt}
-                      checked={studentAnswers[q.id] === opt}
-                      onChange={(e) => setStudentAnswers({...studentAnswers, [q.id]: e.target.value})}
-                      className="w-5 h-5 text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                    />
-                    <span className="font-medium text-slate-800">{q[`option_${opt.toLowerCase()}`]}</span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <textarea 
-                value={studentAnswers[q.id] || ''}
-                onChange={(e) => setStudentAnswers({...studentAnswers, [q.id]: e.target.value})}
-                className="w-full p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none min-h-[120px]"
-                placeholder="Ketik jawaban Anda di sini..."
-              />
-            )}
-          </motion.div>
-        ))}
-      </div>
-
-      <div className="mt-12 flex justify-end">
-        <button 
-          onClick={submitExam}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-bold shadow-xl shadow-indigo-100 transition-all active:scale-95 flex items-center gap-2"
-        >
-          <CheckCircle2 size={20} />
-          Kumpulkan Jawaban
-        </button>
-      </div>
-    </div>
-  </div>
-);
-
-const AdminUI: React.FC<any> = ({ user, handleLogout, activeTab, setActiveTab, adminClasses, adminStudents, adminTeachers, handleAdminAction, isModalOpen, setIsModalOpen, modalType, editingItem, formData, setFormData, saveAdminData }) => (
-  <div className="min-h-screen bg-neutral-50 font-sans">
-    <nav className="bg-white/80 backdrop-blur-lg border-b border-neutral-200/80 sticky top-0 z-10">
-      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-neutral-800 rounded-xl flex items-center justify-center">
-            <ShieldCheck className="text-white w-6 h-6" />
-          </div>
-          <span className="text-2xl font-bold font-display text-neutral-900 tracking-tight">Admin Panel</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="hidden md:block text-right">
-            <p className="text-sm font-bold text-neutral-900">{user?.name}</p>
-            <p className="text-xs text-neutral-500 uppercase tracking-wider">Administrator</p>
-          </div>
-          <button 
-            onClick={handleLogout}
-            className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-100 rounded-xl transition-all"
-          >
-            <LogOut size={20} />
-          </button>
-        </div>
-      </div>
-    </nav>
-
-    <main className="max-w-7xl mx-auto p-6">
-      <div className="flex bg-white p-1.5 rounded-2xl border border-neutral-200/80 shadow-sm mb-8">
-        <button 
-          onClick={() => setActiveTab('admin_classes')}
-          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'admin_classes' ? 'bg-neutral-800 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100'}`}
-        >
-          <LayoutDashboard size={18} />
-          Manajemen Kelas
-        </button>
-        <button 
-          onClick={() => setActiveTab('admin_students')}
-          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'admin_students' ? 'bg-neutral-800 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100'}`}
-        >
-          <GraduationCap size={18} />
-          Manajemen Siswa
-        </button>
-        <button 
-          onClick={() => setActiveTab('admin_teachers')}
-          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'admin_teachers' ? 'bg-neutral-800 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100'}`}
-        >
-          <User size={18} />
-          Manajemen Guru
-        </button>
-      </div>
-
-      <div className="bg-white p-8 rounded-3xl shadow-lg shadow-neutral-900/5 border border-neutral-200/60">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold font-display text-neutral-800">
-            {activeTab === 'admin_classes' ? 'Daftar Kelas' : activeTab === 'admin_students' ? 'Daftar Siswa' : 'Daftar Guru'}
-          </h2>
-          <button 
-            onClick={() => handleAdminAction('add', activeTab.split('_')[1].slice(0, -1) as any)}
-            className="bg-neutral-800 hover:bg-neutral-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md flex items-center gap-2 transition-all"
-          >
-            <Plus size={18} />
-            Tambah Baru
-          </button>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left text-neutral-500">
-            <thead className="text-xs text-neutral-700 uppercase bg-neutral-50">
-              <tr>
-                {activeTab === 'admin_classes' && <th scope="col" className="px-6 py-3">ID</th>}
-                {activeTab === 'admin_classes' && <th scope="col" className="px-6 py-3">Nama Kelas</th>}
-                {activeTab !== 'admin_classes' && <th scope="col" className="px-6 py-3">Nama</th>}
-                {activeTab !== 'admin_classes' && <th scope="col" className="px-6 py-3">Identifier</th>}
-                {activeTab === 'admin_students' && <th scope="col" className="px-6 py-3">Kelas</th>}
-                {activeTab === 'admin_teachers' && <th scope="col" className="px-6 py-3">Mata Pelajaran</th>}
-                <th scope="col" className="px-6 py-3 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeTab === 'admin_classes' && adminClasses.map(c => (
-                <tr key={c.id} className="bg-white border-b hover:bg-neutral-50">
-                  <td className="px-6 py-4 font-medium text-neutral-900">{c.id}</td>
-                  <td className="px-6 py-4">{c.name}</td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <button onClick={() => handleAdminAction('edit', 'class', c.id)} className="font-medium text-blue-600 hover:underline">Edit</button>
-                    <button onClick={() => handleAdminAction('delete', 'class', c.id)} className="font-medium text-red-600 hover:underline">Hapus</button>
-                  </td>
-                </tr>
-              ))}
-              {activeTab === 'admin_students' && adminStudents.map(s => (
-                <tr key={s.id} className="bg-white border-b hover:bg-neutral-50">
-                  <td className="px-6 py-4 font-medium text-neutral-900">{s.name}</td>
-                  <td className="px-6 py-4">{s.identifier}</td>
-                  <td className="px-6 py-4">{s.class}</td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <button onClick={() => handleAdminAction('edit', 'student', s.id)} className="font-medium text-blue-600 hover:underline">Edit</button>
-                    <button onClick={() => handleAdminAction('delete', 'student', s.id)} className="font-medium text-red-600 hover:underline">Hapus</button>
-                  </td>
-                </tr>
-              ))}
-              {activeTab === 'admin_teachers' && adminTeachers.map(t => (
-                <tr key={t.id} className="bg-white border-b hover:bg-neutral-50">
-                  <td className="px-6 py-4 font-medium text-neutral-900">{t.name}</td>
-                  <td className="px-6 py-4">{t.identifier}</td>
-                  <td className="px-6 py-4">{t.subject}</td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <button onClick={() => handleAdminAction('edit', 'teacher', t.id)} className="font-medium text-blue-600 hover:underline">Edit</button>
-                    <button onClick={() => handleAdminAction('delete', 'teacher', t.id)} className="font-medium text-red-600 hover:underline">Hapus</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </main>
-
-    <AnimatePresence>
-      {isModalOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => setIsModalOpen(false)}
-        >
-          <motion.div
-            initial={{ scale: 0.95, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.95, y: 20 }}
-            className="bg-white rounded-2xl p-8 w-full max-w-md shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-xl font-bold mb-6">{editingItem ? 'Edit' : 'Tambah'} {modalType}</h3>
-            <form onSubmit={saveAdminData} className="space-y-4">
-              {modalType === 'class' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-bold text-neutral-700 mb-2">ID</label>
-                    <input 
-                      type="text" 
-                      value={editingItem ? formData.id : ''} 
-                      placeholder="Otomatis"
-                      className="w-full p-2 border rounded bg-neutral-100 text-neutral-500 cursor-not-allowed"
-                      disabled 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-neutral-700 mb-2">CLASS</label>
-                    <input 
-                      type="text" 
-                      placeholder="Contoh: 12-A"
-                      value={formData.name || ''} 
-                      onChange={e => setFormData({...formData, name: e.target.value})} 
-                      className="w-full p-2 border rounded" 
-                      required 
-                    />
-                  </div>
-                </>
-              )}
-              {modalType === 'student' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-bold text-neutral-700 mb-2">NIS</label>
-                    <input type="text" placeholder="Nomor Induk Siswa" value={formData.identifier || ''} onChange={e => setFormData({...formData, identifier: e.target.value})} className="w-full p-2 border rounded" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-neutral-700 mb-2">NAMA</label>
-                    <input type="text" placeholder="Nama Lengkap Siswa" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-2 border rounded" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-neutral-700 mb-2">KELAS</label>
-                    <input type="text" placeholder="Contoh: 12-A" value={formData.class || ''} onChange={e => setFormData({...formData, class: e.target.value})} className="w-full p-2 border rounded" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-neutral-700 mb-2">PASSWORD</label>
-                    <input type="password" placeholder="Kosongkan jika tidak diubah" onChange={e => setFormData({...formData, password: e.target.value})} className="w-full p-2 border rounded" />
-                  </div>
-                </>
-              )}
-              {modalType === 'teacher' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-bold text-neutral-700 mb-2">NIP</label>
-                    <input type="text" placeholder="Nomor Induk Pegawai" value={formData.identifier || ''} onChange={e => setFormData({...formData, identifier: e.target.value})} className="w-full p-2 border rounded" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-neutral-700 mb-2">NAMA</label>
-                    <input type="text" placeholder="Nama Lengkap Guru" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-2 border rounded" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-neutral-700 mb-2">MATA PELAJARAN</label>
-                    <input type="text" placeholder="Contoh: Matematika" value={formData.subject || ''} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full p-2 border rounded" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-neutral-700 mb-2">PASSWORD</label>
-                    <input type="password" placeholder="Kosongkan jika tidak diubah" onChange={e => setFormData({...formData, password: e.target.value})} className="w-full p-2 border rounded" />
-                  </div>
-                </>
-              )}
-              <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg bg-neutral-100 text-neutral-700 font-semibold">Batal</button>
-                <button type="submit" className="px-4 py-2 rounded-lg bg-neutral-800 text-white font-semibold">Simpan</button>
-              </div>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  </div>
-);
-
-
-
-
 
 export default function App() {
   const [role, setRole] = useState<Role>(null);
@@ -436,12 +134,9 @@ export default function App() {
         fetch('/api/admin/students'),
         fetch('/api/admin/teachers')
       ]);
-      const classesData = await safeJsonParse(classesRes);
-      const studentsData = await safeJsonParse(studentsRes);
-      const teachersData = await safeJsonParse(teachersRes);
-      setAdminClasses(classesData || []);
-      setAdminStudents(studentsData || []);
-      setAdminTeachers(teachersData || []);
+      setAdminClasses(await classesRes.json());
+      setAdminStudents(await studentsRes.json());
+      setAdminTeachers(await teachersRes.json());
     } catch (err) {
       console.error("Failed to fetch admin data", err);
     }
@@ -451,8 +146,8 @@ export default function App() {
     if (!user) return;
     try {
       const res = await fetch(`/api/exams?role=${user.role}&userId=${user.id}&studentClass=${user.class || ''}`);
-      const data = await safeJsonParse(res);
-      setExams(data || []);
+      const data = await res.json();
+      setExams(data);
     } catch (err) {
       console.error("Failed to fetch exams", err);
     }
@@ -465,8 +160,8 @@ export default function App() {
         ? `/api/submissions/teacher/${user.id}` 
         : `/api/submissions/student/${user.id}`;
       const res = await fetch(endpoint);
-      const data = await safeJsonParse(res);
-      setSubmissions(data || []);
+      const data = await res.json();
+      setSubmissions(data);
     } catch (err) {
       console.error("Failed to fetch submissions", err);
     }
@@ -481,7 +176,7 @@ export default function App() {
         console.error(`Analysis request failed with status ${res.status}: ${text.substring(0, 100)}`);
         throw new Error(`Server returned ${res.status}`);
       }
-      const data = await safeJsonParse(res);
+      const data = await res.json();
       setAnalysisData(data);
       setSelectedExamId(examId);
     } catch (err) {
@@ -492,8 +187,7 @@ export default function App() {
   const fetchSubmissionDetails = async (submissionId: number) => {
     try {
       const res = await fetch(`/api/submissions/${submissionId}/details`);
-      const data = await safeJsonParse(res);
-      if (!data) throw new Error("No submission details found");
+      const data = await res.json();
       // Map server response to our AnswerDetail type
       const mappedAnswers = data.answers.map((a: any) => ({
         ...a,
@@ -555,8 +249,8 @@ export default function App() {
         setIsModalOpen(false);
         fetchAdminData();
       } else {
-        const data = await safeJsonParse(res);
-        alert(data?.message || 'Terjadi kesalahan');
+        const data = await res.json();
+        alert(data.message || 'Terjadi kesalahan');
       }
     } catch (err) { console.error(err); }
   };
@@ -569,8 +263,8 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ grades: gradingScores })
       });
-      const data = await safeJsonParse(res);
-      if (data?.success) {
+      const data = await res.json();
+      if (data.success) {
         alert("Penilaian berhasil disimpan!");
         setView('dashboard');
         fetchSubmissions();
@@ -612,8 +306,8 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: loginIdentifier, password, role })
       });
-      const data = await safeJsonParse(res);
-      if (data?.success) {
+      const data = await res.json();
+      if (data.success) {
         setUser(data.user);
         if (data.user.role === 'admin') {
           setView('admin');
@@ -622,7 +316,7 @@ export default function App() {
           setView('dashboard');
         }
       } else {
-        setError(data?.message);
+        setError(data.message);
       }
     } catch (err) {
       setError("Terjadi kesalahan koneksi");
@@ -643,8 +337,8 @@ export default function App() {
   const startExam = async (exam: Exam) => {
     try {
       const res = await fetch(`/api/exams/${exam.id}/questions`);
-      const data = await safeJsonParse(res);
-      setQuestions(data || []);
+      const data = await res.json();
+      setQuestions(data);
       setActiveExam(exam);
       setStudentAnswers({});
       setView('exam');
@@ -665,8 +359,8 @@ export default function App() {
           answers: studentAnswers
         })
       });
-      const data = await safeJsonParse(res);
-      if (data?.success) {
+      const data = await res.json();
+      if (data.success) {
         alert("Ujian berhasil dikumpulkan!");
         setView('dashboard');
         fetchExams();
@@ -704,8 +398,8 @@ export default function App() {
           questions: newQuestions
         })
       });
-      const data = await safeJsonParse(res);
-      if (data?.success) {
+      const data = await res.json();
+      if (data.success) {
         alert("Ujian berhasil dibuat!");
         setView('dashboard');
         setNewExamSubject('');
@@ -721,103 +415,103 @@ export default function App() {
   // --- Render Helpers ---
 
   const renderLanding = () => (
-    <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4 font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-12"
       >
-        <h1 className="text-6xl font-display font-bold text-neutral-900 mb-4 tracking-tight">EduSmart</h1>
-        <p className="text-neutral-500 text-lg">Sistem Manajemen Ujian Sekolah Terpadu</p>
+        <h1 className="text-5xl font-bold text-slate-900 mb-4 tracking-tight">EduSmart</h1>
+        <p className="text-slate-500 text-lg">Sistem Manajemen Ujian Sekolah Terpadu</p>
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
         <motion.button
-          whileHover={{ scale: 1.02, y: -5 }}
+          whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => { setRole('student'); setView('login'); }}
-          className="bg-white p-8 rounded-3xl shadow-lg shadow-primary/10 border-2 border-transparent hover:border-primary transition-all group"
+          className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center group hover:border-indigo-500 transition-colors"
         >
-          <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-primary transition-colors duration-300">
-            <GraduationCap className="w-10 h-10 text-primary group-hover:text-white transition-colors duration-300" />
+          <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-indigo-500 transition-colors">
+            <GraduationCap className="w-10 h-10 text-indigo-600 group-hover:text-white transition-colors" />
           </div>
-          <span className="text-2xl font-bold font-display text-neutral-800">SISWA</span>
-          <p className="text-neutral-500 mt-2 text-sm">Masuk sebagai peserta ujian</p>
+          <span className="text-2xl font-semibold text-slate-800">SISWA</span>
+          <p className="text-slate-500 mt-2 text-sm">Masuk sebagai peserta ujian</p>
         </motion.button>
 
         <motion.button
-          whileHover={{ scale: 1.02, y: -5 }}
+          whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => { setRole('teacher'); setView('login'); }}
-          className="bg-white p-8 rounded-3xl shadow-lg shadow-secondary/10 border-2 border-transparent hover:border-secondary transition-all group"
+          className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center group hover:border-emerald-500 transition-colors"
         >
-          <div className="w-20 h-20 bg-secondary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-secondary transition-colors duration-300">
-            <User className="w-10 h-10 text-secondary group-hover:text-white transition-colors duration-300" />
+          <div className="w-20 h-20 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-emerald-500 transition-colors">
+            <User className="w-10 h-10 text-emerald-600 group-hover:text-white transition-colors" />
           </div>
-          <span className="text-2xl font-bold font-display text-neutral-800">GURU</span>
-          <p className="text-neutral-500 mt-2 text-sm">Masuk sebagai pengajar</p>
+          <span className="text-2xl font-semibold text-slate-800">GURU</span>
+          <p className="text-slate-500 mt-2 text-sm">Masuk sebagai pengajar</p>
         </motion.button>
 
         <motion.button
-          whileHover={{ scale: 1.02, y: -5 }}
+          whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => { setRole('admin'); setView('login'); }}
-          className="bg-white p-8 rounded-3xl shadow-lg shadow-neutral-400/10 border-2 border-transparent hover:border-neutral-600 transition-all group md:col-span-2"
+          className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center group hover:border-slate-500 transition-colors md:col-span-2"
         >
-          <div className="w-20 h-20 bg-neutral-200/50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-neutral-800 transition-colors duration-300">
-            <UserCircle className="w-10 h-10 text-neutral-600 group-hover:text-white transition-colors duration-300" />
+          <div className="w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-slate-500 transition-colors">
+            <UserCircle className="w-10 h-10 text-slate-600 group-hover:text-white transition-colors" />
           </div>
-          <span className="text-2xl font-bold font-display text-neutral-800">ADMIN</span>
-          <p className="text-neutral-500 mt-2 text-sm">Masuk sebagai administrator</p>
+          <span className="text-2xl font-semibold text-slate-800">ADMIN</span>
+          <p className="text-slate-500 mt-2 text-sm">Masuk sebagai administrator</p>
         </motion.button>
       </div>
     </div>
   );
 
   const renderLogin = () => (
-    <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-4 font-sans">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white p-10 rounded-3xl shadow-2xl shadow-neutral-900/10 border border-neutral-200/50 w-full max-w-md"
+        className="bg-white p-10 rounded-3xl shadow-xl border border-slate-100 w-full max-w-md"
       >
         <button 
           onClick={() => setView('landing')}
-          className="text-neutral-400 hover:text-neutral-600 mb-6 flex items-center gap-1 text-sm font-bold"
+          className="text-slate-400 hover:text-slate-600 mb-6 flex items-center gap-1 text-sm font-medium"
         >
           Kembali
         </button>
         
-        <div className="flex items-center gap-4 mb-8">
-          <div className={`p-4 rounded-2xl ${ 
-            role === 'student' ? 'bg-primary/10 text-primary' : 
-            role === 'teacher' ? 'bg-secondary/10 text-secondary' : 
-            'bg-neutral-200/50 text-neutral-600'
+        <div className="flex items-center gap-3 mb-8">
+          <div className={`p-3 rounded-xl ${
+            role === 'student' ? 'bg-indigo-100 text-indigo-600' : 
+            role === 'teacher' ? 'bg-emerald-100 text-emerald-600' : 
+            'bg-slate-100 text-slate-600'
           }`}>
-            {role === 'student' ? <GraduationCap size={28} /> : 
-             role === 'teacher' ? <User size={28} /> : 
-             <ShieldCheck size={28} />}
+            {role === 'student' ? <GraduationCap size={24} /> : 
+             role === 'teacher' ? <User size={24} /> : 
+             <ShieldCheck size={24} />}
           </div>
           <div>
-            <h2 className="text-3xl font-bold font-display text-neutral-900">
+            <h2 className="text-2xl font-bold text-slate-900">
               Log In {role === 'student' ? 'Siswa' : role === 'teacher' ? 'Guru' : 'Admin'}
             </h2>
-            <p className="text-neutral-500 text-sm">Silakan masukkan kredensial Anda</p>
+            <p className="text-slate-500 text-sm">Silakan masukkan kredensial Anda</p>
           </div>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-5">
           {role !== 'admin' && (
             <div>
-              <label className="block text-sm font-bold text-neutral-700 mb-2">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
                 {role === 'student' ? 'NIS (Nomor Induk Siswa)' : 'NIP (Nomor Induk Pegawai)'}
               </label>
               <input 
                 type="text" 
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className={`w-full px-4 py-3 rounded-xl border-2 border-neutral-200 bg-neutral-50 focus:ring-2 focus:border-transparent outline-none transition-all ${ 
-                  role === 'student' ? 'focus:ring-primary' : 'focus:ring-secondary'
+                className={`w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:border-transparent outline-none transition-all ${
+                  role === 'student' ? 'focus:ring-indigo-500' : 'focus:ring-emerald-500'
                 }`}
                 placeholder={role === 'student' ? 'Contoh: 12345' : 'Contoh: 98765'}
                 required
@@ -825,17 +519,17 @@ export default function App() {
             </div>
           )}
           <div>
-            <label className="block text-sm font-bold text-neutral-700 mb-2">
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
               {role === 'admin' ? 'Password Admin' : 'Password'}
             </label>
             <input 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl border-2 border-neutral-200 bg-neutral-50 focus:ring-2 focus:border-transparent outline-none transition-all ${ 
-                role === 'student' ? 'focus:ring-primary' : 
-                role === 'teacher' ? 'focus:ring-secondary' : 
-                'focus:ring-neutral-900'
+              className={`w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:border-transparent outline-none transition-all ${
+                role === 'student' ? 'focus:ring-indigo-500' : 
+                role === 'teacher' ? 'focus:ring-emerald-500' : 
+                'focus:ring-slate-900'
               }`}
               placeholder="••••••••"
               required
@@ -843,16 +537,12 @@ export default function App() {
           </div>
           
           {error && (
-            <p className="text-red-600 text-sm bg-red-100 p-3 rounded-lg border border-red-200 font-semibold">{error}</p>
+            <p className="text-red-500 text-sm bg-red-50 p-3 rounded-lg border border-red-100">{error}</p>
           )}
 
           <button 
             type="submit"
-            className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-transform active:scale-95 ${ 
-              role === 'student' ? 'bg-primary hover:bg-primary-dark shadow-primary/20' : 
-              role === 'teacher' ? 'bg-secondary hover:bg-secondary-dark shadow-secondary/20' : 
-              'bg-neutral-800 hover:bg-neutral-900 shadow-neutral-900/20'
-            }`}
+            className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-transform active:scale-95 ${role === 'student' ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200' : role === 'teacher' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-slate-800 hover:bg-slate-900 shadow-slate-200'}`}
           >
             Masuk Sekarang
           </button>
@@ -862,24 +552,24 @@ export default function App() {
   );
 
   const renderDashboard = () => (
-    <div className="min-h-screen bg-neutral-50 font-sans">
+    <div className="min-h-screen bg-slate-50">
       {/* Navbar */}
-      <nav className="bg-white/80 backdrop-blur-lg border-b border-neutral-200/80 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+      <nav className="bg-white border-bottom border-slate-200 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
               <BookOpen className="text-white w-6 h-6" />
             </div>
-            <span className="text-2xl font-bold font-display text-neutral-900 tracking-tight">EduSmart</span>
+            <span className="text-xl font-bold text-slate-900 tracking-tight">EduSmart</span>
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden md:block text-right">
-              <p className="text-sm font-bold text-neutral-900">{user?.name}</p>
-              <p className="text-xs text-neutral-500 uppercase tracking-wider">{user?.role === 'student' ? `Kelas ${user.class}` : 'Pengajar'}</p>
+              <p className="text-sm font-bold text-slate-900">{user?.name}</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider">{user?.role === 'student' ? `Kelas ${user.class}` : 'Pengajar'}</p>
             </div>
             <button 
               onClick={handleLogout}
-              className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-100 rounded-xl transition-all"
+              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
             >
               <LogOut size={20} />
             </button>
@@ -887,30 +577,30 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <main className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Profile Sidebar */}
         <div className="lg:col-span-1 space-y-6">
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white p-8 rounded-3xl shadow-lg shadow-neutral-900/5 border border-neutral-200/60"
+            className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200"
           >
             <div className="flex flex-col items-center text-center">
-              <div className="w-24 h-24 bg-neutral-100 rounded-full flex items-center justify-center mb-4 border-4 border-white shadow-inner">
-                <UserCircle className="w-16 h-16 text-neutral-300" />
+              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4 border-4 border-white shadow-inner">
+                <UserCircle className="w-16 h-16 text-slate-300" />
               </div>
-              <h3 className="text-2xl font-bold font-display text-neutral-900">{user?.name}</h3>
-              <p className="text-neutral-500 text-sm mb-6">{user?.role === 'student' ? `NIS: ${user.identifier}` : `NIP: ${user.identifier}`}</p>
+              <h3 className="text-xl font-bold text-slate-900">{user?.name}</h3>
+              <p className="text-slate-500 text-sm mb-6">{user?.role === 'student' ? `NIS: ${user.identifier}` : `NIP: ${user.identifier}`}</p>
               
               <div className="w-full space-y-3">
-                <div className="flex justify-between p-3 bg-neutral-100 rounded-xl text-sm">
-                  <span className="text-neutral-500">Status</span>
-                  <span className="font-bold text-primary uppercase">{user?.role}</span>
+                <div className="flex justify-between p-3 bg-slate-50 rounded-xl text-sm">
+                  <span className="text-slate-500">Status</span>
+                  <span className="font-bold text-indigo-600 uppercase">{user?.role}</span>
                 </div>
                 {user?.role === 'student' && (
-                  <div className="flex justify-between p-3 bg-neutral-100 rounded-xl text-sm">
-                    <span className="text-neutral-500">Kelas</span>
-                    <span className="font-bold text-neutral-900">{user.class}</span>
+                  <div className="flex justify-between p-3 bg-slate-50 rounded-xl text-sm">
+                    <span className="text-slate-500">Kelas</span>
+                    <span className="font-bold text-slate-900">{user.class}</span>
                   </div>
                 )}
               </div>
@@ -923,7 +613,7 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
               onClick={() => setView('create_exam')}
-              className="w-full bg-secondary hover:bg-secondary-dark text-white p-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-secondary/20 transition-all active:scale-95"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95"
             >
               <PlusCircle size={20} />
               Buat Soal Ujian
@@ -934,17 +624,17 @@ export default function App() {
         {/* Main Content Area */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex bg-white p-1.5 rounded-2xl border border-neutral-200/80 shadow-sm">
+            <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
               <button 
                 onClick={() => { setActiveTab('exams'); setSelectedExamId(null); }}
-                className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'exams' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-neutral-500 hover:bg-neutral-100'}`}
+                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'exams' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 <ClipboardList size={18} />
                 Daftar Ujian
               </button>
               <button 
                 onClick={() => { setActiveTab('grades'); setSelectedExamId(null); }}
-                className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'grades' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-neutral-500 hover:bg-neutral-100'}`}
+                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'grades' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 <Award size={18} />
                 Nilai Ujian
@@ -952,7 +642,7 @@ export default function App() {
               {user?.role === 'teacher' && (
                 <button 
                   onClick={() => { setActiveTab('analysis'); setSelectedExamId(null); setAnalysisData(null); }}
-                  className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'analysis' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-neutral-500 hover:bg-neutral-100'}`}
+                  className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'analysis' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
                 >
                   <BarChart3 size={18} />
                   Analisis Soal
@@ -960,7 +650,7 @@ export default function App() {
               )}
             </div>
             
-            <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold self-start sm:self-center">
+            <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold self-start sm:self-center">
               {activeTab === 'exams' ? `${exams.length} Tersedia` : `${submissions.length} Selesai`}
             </span>
           </div>
@@ -975,21 +665,21 @@ export default function App() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.05 }}
-                      className="bg-white p-6 rounded-2xl border border-neutral-200/70 shadow-sm hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all group"
+                      className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-all group"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex gap-4">
-                          <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                            <FileText className="text-neutral-400 group-hover:text-primary transition-colors" />
+                          <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-indigo-50 transition-colors">
+                            <FileText className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
                           </div>
                           <div>
-                            <h4 className="text-lg font-bold font-display text-neutral-900">{exam.subject}</h4>
+                            <h4 className="text-lg font-bold text-slate-900">{exam.subject}</h4>
                             <div className="flex items-center gap-3 mt-1">
-                              <span className="text-xs text-neutral-500 flex items-center gap-1.5">
+                              <span className="text-xs text-slate-500 flex items-center gap-1">
                                 <LayoutDashboard size={12} /> Kelas {exam.class}
                               </span>
                               {user?.role === 'student' && (
-                                <span className="text-xs text-neutral-500 flex items-center gap-1.5">
+                                <span className="text-xs text-slate-500 flex items-center gap-1">
                                   <User size={12} /> {exam.teacher_name}
                                 </span>
                               )}
@@ -1000,12 +690,12 @@ export default function App() {
                         {user?.role === 'student' ? (
                           <button 
                             onClick={() => startExam(exam)}
-                            className="bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-primary/20 flex items-center gap-1.5 transition-all"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-md shadow-indigo-100 flex items-center gap-1 transition-all"
                           >
                             Kerjakan <ChevronRight size={16} />
                           </button>
                         ) : (
-                          <div className="text-xs text-neutral-400 italic">
+                          <div className="text-xs text-slate-400 italic">
                             Dibuat pada {new Date(exam.created_at).toLocaleDateString('id-ID')}
                           </div>
                         )}
@@ -1013,11 +703,11 @@ export default function App() {
                     </motion.div>
                   ))
                 ) : (
-                  <div className="bg-white p-12 rounded-3xl border-2 border-dashed border-neutral-200 text-center">
-                    <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <ClipboardList className="text-neutral-300 w-8 h-8" />
+                  <div className="bg-white p-12 rounded-3xl border border-dashed border-slate-300 text-center">
+                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <ClipboardList className="text-slate-300 w-8 h-8" />
                     </div>
-                    <p className="text-neutral-500 font-medium">Belum ada ujian yang tersedia untuk saat ini.</p>
+                    <p className="text-slate-500 font-medium">Belum ada ujian yang tersedia untuk saat ini.</p>
                   </div>
                 )
               ) : activeTab === 'analysis' ? (
@@ -1032,25 +722,25 @@ export default function App() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: idx * 0.05 }}
                         onClick={() => fetchAnalysis(exam.id)}
-                        className="bg-white p-6 rounded-2xl border border-neutral-200/70 shadow-sm hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all cursor-pointer group"
+                        className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-all cursor-pointer group"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex gap-4">
-                            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                              <BarChart3 className="text-primary w-6 h-6" />
+                            <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
+                              <BarChart3 className="text-indigo-600 w-6 h-6" />
                             </div>
                             <div>
-                              <h4 className="text-lg font-bold font-display text-neutral-900">{exam.subject}</h4>
-                              <p className="text-xs text-neutral-500">Kelas {exam.class}</p>
+                              <h4 className="text-lg font-bold text-slate-900">{exam.subject}</h4>
+                              <p className="text-xs text-slate-500">Kelas {exam.class}</p>
                             </div>
                           </div>
-                          <ChevronRight className="text-neutral-300 group-hover:text-primary transition-colors" />
+                          <ChevronRight className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
                         </div>
                       </motion.div>
                     ))
                   ) : (
-                    <div className="bg-white p-12 rounded-3xl border-2 border-dashed border-neutral-200 text-center">
-                      <p className="text-neutral-500 font-medium">Belum ada ujian untuk dianalisis.</p>
+                    <div className="bg-white p-12 rounded-3xl border border-dashed border-slate-300 text-center">
+                      <p className="text-slate-500 font-medium">Belum ada ujian untuk dianalisis.</p>
                     </div>
                   )
                 ) : (
@@ -1058,13 +748,13 @@ export default function App() {
                   <div className="space-y-6">
                     <button 
                       onClick={() => { setSelectedExamId(null); setAnalysisData(null); }}
-                      className="text-primary font-bold text-sm flex items-center gap-1 mb-2 hover:underline"
+                      className="text-indigo-600 font-bold text-sm flex items-center gap-1 mb-2 hover:underline"
                     >
                       ← Kembali ke Daftar Analisis
                     </button>
                     
-                    <div className="bg-primary p-8 rounded-3xl text-white shadow-2xl shadow-primary/20 mb-8">
-                      <h3 className="text-2xl font-bold font-display mb-2">Analisis Soal: {exams.find(e => e.id === selectedExamId)?.subject}</h3>
+                    <div className="bg-indigo-600 p-8 rounded-3xl text-white shadow-xl shadow-indigo-100 mb-8">
+                      <h3 className="text-2xl font-bold mb-2">Analisis Soal: {exams.find(e => e.id === selectedExamId)?.subject}</h3>
                       <div className="flex items-center gap-4 opacity-90">
                         <Users size={18} />
                         <span className="font-medium text-lg">{analysisData?.totalSubmissions} Siswa telah mengerjakan</span>
@@ -1083,36 +773,36 @@ export default function App() {
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: idx * 0.05 }}
-                            className="bg-white p-6 rounded-2xl border border-neutral-200/70 shadow-sm"
+                            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"
                           >
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <span className="text-[10px] font-bold px-2 py-0.5 bg-neutral-100 text-neutral-500 rounded-md uppercase tracking-wider">
+                                  <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md uppercase tracking-wider">
                                     Soal {idx + 1} • {q.type === 'multiple_choice' ? 'Pilihan Ganda' : 'Essay'}
                                   </span>
                                 </div>
-                                <p className="text-neutral-800 font-medium leading-relaxed">{q.question_text}</p>
+                                <p className="text-slate-800 font-medium leading-relaxed">{q.question_text}</p>
                               </div>
 
                               <div className="flex items-center gap-8 min-w-[200px] justify-end">
                                 <div className="text-center">
-                                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Benar</span>
-                                  <span className="text-xl font-black text-primary">{q.correct_count}</span>
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Benar</span>
+                                  <span className="text-xl font-black text-indigo-600">{q.correct_count}</span>
                                 </div>
                                 <div className="text-center">
-                                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Persentase</span>
-                                  <span className="text-xl font-black text-secondary">{percentage.toFixed(1)}%</span>
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Persentase</span>
+                                  <span className="text-xl font-black text-emerald-600">{percentage.toFixed(1)}%</span>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="mt-4 w-full bg-neutral-100 h-2 rounded-full overflow-hidden">
+                            <div className="mt-4 w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                               <motion.div 
                                 initial={{ width: 0 }}
                                 animate={{ width: `${percentage}%` }}
                                 transition={{ duration: 1, delay: idx * 0.1 }}
-                                className={`h-full ${percentage > 70 ? 'bg-secondary' : percentage > 40 ? 'bg-accent' : 'bg-red-500'}`}
+                                className={`h-full ${percentage > 70 ? 'bg-emerald-500' : percentage > 40 ? 'bg-amber-500' : 'bg-red-500'}`}
                                 style={{ width: `${percentage}%` }}
                               />
                             </div>
@@ -1138,29 +828,29 @@ export default function App() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.05 }}
                             onClick={() => setSelectedExamId(examId)}
-                            className="bg-white p-6 rounded-2xl border border-neutral-200/70 shadow-sm hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all cursor-pointer group"
+                            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-all cursor-pointer group"
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex gap-4">
-                                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                                  <BookOpen className="text-primary w-6 h-6" />
+                                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
+                                  <BookOpen className="text-indigo-600 w-6 h-6" />
                                 </div>
                                 <div>
-                                  <h4 className="text-lg font-bold font-display text-neutral-900">{firstSub.subject}</h4>
-                                  <p className="text-xs text-neutral-500">Kelas {firstSub.class} • {count} Siswa Mengumpulkan</p>
+                                  <h4 className="text-lg font-bold text-slate-900">{firstSub.subject}</h4>
+                                  <p className="text-xs text-slate-500">Kelas {firstSub.class} • {count} Siswa Mengumpulkan</p>
                                 </div>
                               </div>
-                              <ChevronRight className="text-neutral-300 group-hover:text-primary transition-colors" />
+                              <ChevronRight className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
                             </div>
                           </motion.div>
                         );
                       })
                     ) : (
-                      <div className="bg-white p-12 rounded-3xl border-2 border-dashed border-neutral-200 text-center">
-                        <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Award className="text-neutral-300 w-8 h-8" />
+                      <div className="bg-white p-12 rounded-3xl border border-dashed border-slate-300 text-center">
+                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Award className="text-slate-300 w-8 h-8" />
                         </div>
-                        <p className="text-neutral-500 font-medium">Belum ada nilai ujian yang tercatat.</p>
+                        <p className="text-slate-500 font-medium">Belum ada nilai ujian yang tercatat.</p>
                       </div>
                     )
                   ) : (
@@ -1168,11 +858,11 @@ export default function App() {
                     <div className="space-y-4">
                       <button 
                         onClick={() => setSelectedExamId(null)}
-                        className="text-primary font-bold text-sm flex items-center gap-1 mb-2 hover:underline"
+                        className="text-indigo-600 font-bold text-sm flex items-center gap-1 mb-2 hover:underline"
                       >
                         ← Kembali ke Daftar Mata Pelajaran
                       </button>
-                      <h3 className="text-lg font-bold text-neutral-800 mb-4">
+                      <h3 className="text-lg font-bold text-slate-800 mb-4">
                         Siswa yang mengumpulkan: {submissions.find(s => s.exam_id === selectedExamId)?.subject}
                       </h3>
                       {submissions.filter(s => s.exam_id === selectedExamId).map((sub, idx) => (
@@ -1181,27 +871,27 @@ export default function App() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.05 }}
-                          className="bg-white p-6 rounded-2xl border border-neutral-200/70 shadow-sm hover:border-primary/50 transition-all group"
+                          className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-all group"
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex gap-4">
-                              <div className="w-10 h-10 bg-neutral-100 rounded-full flex items-center justify-center">
-                                <User className="text-neutral-400 w-5 h-5" />
+                              <div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center">
+                                <User className="text-slate-400 w-5 h-5" />
                               </div>
                               <div>
-                                <h4 className="text-md font-bold text-neutral-900">{sub.student_name}</h4>
-                                <p className="text-xs text-neutral-500">NIS: {sub.student_nis}</p>
+                                <h4 className="text-md font-bold text-slate-900">{sub.student_name}</h4>
+                                <p className="text-xs text-slate-500">NIS: {sub.student_nis}</p>
                               </div>
                             </div>
                             
                             <div className="flex items-center gap-6">
                               <div className="text-right">
-                                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Skor</span>
-                                <span className="text-xl font-black text-primary">{(sub.score ?? 0).toFixed(1)}</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Skor</span>
+                                <span className="text-xl font-black text-indigo-600">{(sub.score ?? 0).toFixed(1)}</span>
                               </div>
                               <button 
                                 onClick={() => fetchSubmissionDetails(sub.id)}
-                                className="p-2 bg-neutral-100 hover:bg-primary hover:text-white text-neutral-500 rounded-xl transition-all"
+                                className="p-2 bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-500 rounded-xl transition-all"
                                 title="Beri Nilai / Lihat Detail"
                               >
                                 <Edit3 size={20} />
@@ -1221,27 +911,27 @@ export default function App() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: idx * 0.05 }}
-                        className="bg-white p-6 rounded-2xl border border-neutral-200/70 shadow-sm hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all group"
+                        className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-all group"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex gap-4">
-                            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                              <Trophy className="text-primary w-6 h-6" />
+                            <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
+                              <Trophy className="text-indigo-600 w-6 h-6" />
                             </div>
                             <div>
-                              <h4 className="text-lg font-bold font-display text-neutral-900">{sub.subject}</h4>
-                              <p className="text-xs text-neutral-500">Oleh {sub.teacher_name}</p>
+                              <h4 className="text-lg font-bold text-slate-900">{sub.subject}</h4>
+                              <p className="text-xs text-slate-500">Oleh {sub.teacher_name}</p>
                             </div>
                           </div>
                           
                           <div className="flex items-center gap-6">
                             <div className="text-right">
-                              <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Skor Akhir</span>
-                              <span className="text-2xl font-black text-primary">{(sub.score ?? 0).toFixed(1)}</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Skor Akhir</span>
+                              <span className="text-2xl font-black text-indigo-600">{(sub.score ?? 0).toFixed(1)}</span>
                             </div>
                             <button 
                               onClick={() => fetchSubmissionDetails(sub.id)}
-                              className="p-2 bg-neutral-100 hover:bg-primary hover:text-white text-neutral-500 rounded-xl transition-all"
+                              className="p-2 bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-500 rounded-xl transition-all"
                               title="Lihat Detail"
                             >
                               <Search size={20} />
@@ -1251,11 +941,11 @@ export default function App() {
                       </motion.div>
                     ))
                   ) : (
-                    <div className="bg-white p-12 rounded-3xl border-2 border-dashed border-neutral-200 text-center">
-                      <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Award className="text-neutral-300 w-8 h-8" />
+                    <div className="bg-white p-12 rounded-3xl border border-dashed border-slate-300 text-center">
+                      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Award className="text-slate-300 w-8 h-8" />
                       </div>
-                      <p className="text-neutral-500 font-medium">Belum ada nilai ujian yang tercatat.</p>
+                      <p className="text-slate-500 font-medium">Belum ada nilai ujian yang tercatat.</p>
                     </div>
                   )
                 )
@@ -1268,13 +958,93 @@ export default function App() {
   );
 
   const renderExam = () => (
-    <ExamUI
-      activeExam={activeExam}
-      questions={questions}
-      studentAnswers={studentAnswers}
-      setStudentAnswers={setStudentAnswers}
-      submitExam={submitExam}
-    />
+    <div className="min-h-screen bg-slate-50 p-6">
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 mb-8 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">{activeExam?.subject}</h2>
+            <p className="text-slate-500">Selesaikan semua soal dengan teliti</p>
+          </div>
+          <div className="text-right">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Waktu Server</span>
+            <p className="text-xl font-mono font-bold text-indigo-600">{new Date().toLocaleTimeString('id-ID')}</p>
+          </div>
+        </div>
+
+        <div className="space-y-8">
+          {questions.map((q, idx) => (
+            <motion.div 
+              key={q.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.1 }}
+              className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm"
+            >
+              <div className="flex items-start gap-4 mb-6">
+                <span className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-bold flex-shrink-0">
+                  {idx + 1}
+                </span>
+                <p className="text-lg text-slate-800 font-medium pt-1">{q.question_text}</p>
+              </div>
+
+              {q.type === 'multiple_choice' ? (
+                <div className="grid grid-cols-1 gap-3 ml-14">
+                  {['A', 'B', 'C', 'D'].map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => setStudentAnswers({ ...studentAnswers, [q.id]: opt })}
+                      className={`p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
+                        studentAnswers[q.id] === opt 
+                        ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm ring-1 ring-indigo-500' 
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                        studentAnswers[q.id] === opt ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {opt}
+                      </span>
+                      <span>{(q as any)[`option_${opt.toLowerCase()}`]}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="ml-14">
+                  <textarea
+                    value={studentAnswers[q.id] || ''}
+                    onChange={(e) => setStudentAnswers({ ...studentAnswers, [q.id]: e.target.value })}
+                    className="w-full p-4 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none min-h-[150px] transition-all"
+                    placeholder="Tuliskan jawaban essai Anda di sini..."
+                  />
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="mt-12 flex items-center justify-between bg-white p-6 rounded-3xl border border-slate-200 shadow-lg sticky bottom-6">
+          <p className="text-slate-500 text-sm font-medium">
+            Terjawab: <span className="text-indigo-600 font-bold">{Object.keys(studentAnswers).length}</span> dari {questions.length} soal
+          </p>
+          <div className="flex gap-4">
+            <button 
+              onClick={() => setView('dashboard')}
+              className="px-6 py-3 text-slate-500 font-bold hover:text-slate-700 transition-colors"
+            >
+              Batal
+            </button>
+            <button 
+              onClick={submitExam}
+              disabled={Object.keys(studentAnswers).length < questions.length}
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-100 transition-all active:scale-95 flex items-center gap-2"
+            >
+              <CheckCircle2 size={20} />
+              Kumpulkan Ujian
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 
   const renderCreateExam = () => (
@@ -1518,33 +1288,302 @@ export default function App() {
     </div>
   );
 
+  const renderAdminDashboard = () => (
+    <div className="min-h-screen bg-slate-50">
+      {/* Admin Header */}
+      <div className="bg-slate-900 text-white py-6 px-4 shadow-lg sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center border border-slate-700">
+              <ShieldCheck className="text-emerald-400 w-7 h-7" />
+            </div>
+            <div>
+              <h1 className="text-xl font-black tracking-tight">ADMIN PANEL</h1>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">{user?.name}</p>
+            </div>
+          </div>
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-red-600 rounded-xl text-sm font-bold transition-all border border-slate-700 hover:border-red-500"
+          >
+            <LogOut size={18} />
+            Keluar
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Admin Sidebar */}
+        <div className="lg:col-span-1 space-y-4">
+          <div className="bg-white p-2 rounded-3xl shadow-sm border border-slate-200">
+            <button 
+              onClick={() => setActiveTab('admin_classes')}
+              className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-sm font-bold transition-all ${activeTab === 'admin_classes' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              <LayoutDashboard size={20} />
+              Daftar Kelas
+            </button>
+            <button 
+              onClick={() => setActiveTab('admin_students')}
+              className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-sm font-bold transition-all ${activeTab === 'admin_students' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              <Users size={20} />
+              Daftar Siswa
+            </button>
+            <button 
+              onClick={() => setActiveTab('admin_teachers')}
+              className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-sm font-bold transition-all ${activeTab === 'admin_teachers' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              <GraduationCap size={20} />
+              Daftar Guru
+            </button>
+          </div>
+        </div>
+
+        {/* Admin Content */}
+        <div className="lg:col-span-3">
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-6 border-bottom border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-lg font-bold text-slate-900">
+                {activeTab === 'admin_classes' ? 'Manajemen Kelas' : activeTab === 'admin_students' ? 'Manajemen Siswa' : 'Manajemen Guru'}
+              </h3>
+              <button 
+                onClick={() => handleAdminAction('add', activeTab === 'admin_classes' ? 'class' : activeTab === 'admin_students' ? 'student' : 'teacher')}
+                className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-md"
+              >
+                <Plus size={18} />
+                Tambah Data
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                    {activeTab === 'admin_classes' ? (
+                      <>
+                        <th className="px-6 py-4">ID</th>
+                        <th className="px-6 py-4">Nama Kelas</th>
+                        <th className="px-6 py-4 text-right">Aksi</th>
+                      </>
+                    ) : activeTab === 'admin_students' ? (
+                      <>
+                        <th className="px-6 py-4">Kelas</th>
+                        <th className="px-6 py-4">NIS</th>
+                        <th className="px-6 py-4">Nama Siswa</th>
+                        <th className="px-6 py-4">Password</th>
+                        <th className="px-6 py-4 text-right">Aksi</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="px-6 py-4">NIP</th>
+                        <th className="px-6 py-4">Nama Guru</th>
+                        <th className="px-6 py-4">Mata Pelajaran</th>
+                        <th className="px-6 py-4">Password</th>
+                        <th className="px-6 py-4 text-right">Aksi</th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {activeTab === 'admin_classes' && adminClasses.map(c => (
+                    <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4 text-sm font-mono text-slate-400">{c.id}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-slate-700">{c.name}</td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => handleAdminAction('edit', 'class', c.id)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit3 size={18} /></button>
+                          <button onClick={() => handleAdminAction('delete', 'class', c.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={18} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {activeTab === 'admin_students' && adminStudents.map(s => (
+                    <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4 text-sm font-bold text-slate-700">{s.class}</td>
+                      <td className="px-6 py-4 text-sm font-mono text-slate-500">{s.identifier}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-slate-700">{s.name}</td>
+                      <td className="px-6 py-4 text-sm font-mono text-slate-400">********</td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => handleAdminAction('edit', 'student', s.id)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit3 size={18} /></button>
+                          <button onClick={() => handleAdminAction('delete', 'student', s.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={18} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {activeTab === 'admin_teachers' && adminTeachers.map(t => (
+                    <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4 text-sm font-mono text-slate-500">{t.identifier}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-slate-700">{t.name}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-indigo-600">{t.subject}</td>
+                      <td className="px-6 py-4 text-sm font-mono text-slate-400">********</td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => handleAdminAction('edit', 'teacher', t.id)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit3 size={18} /></button>
+                          <button onClick={() => handleAdminAction('delete', 'teacher', t.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={18} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Admin Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-8">
+                <h3 className="text-2xl font-bold text-slate-900 mb-6">
+                  {editingItem ? 'Edit' : 'Tambah'} {modalType === 'class' ? 'Kelas' : modalType === 'student' ? 'Siswa' : 'Guru'}
+                </h3>
+                <form onSubmit={saveAdminData} className="space-y-4">
+                  {modalType === 'class' && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Nama Kelas</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={formData.name || ''}
+                        onChange={e => setFormData({...formData, name: e.target.value})}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
+                        placeholder="Contoh: 10-A"
+                      />
+                    </div>
+                  )}
+                  {modalType === 'student' && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Kelas</label>
+                        <select 
+                          required
+                          value={formData.class || ''}
+                          onChange={e => setFormData({...formData, class: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
+                        >
+                          <option value="">Pilih Kelas</option>
+                          {adminClasses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">NIS</label>
+                        <input 
+                          type="text" required
+                          value={formData.identifier || ''}
+                          onChange={e => setFormData({...formData, identifier: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Nama Siswa</label>
+                        <input 
+                          type="text" required
+                          value={formData.name || ''}
+                          onChange={e => setFormData({...formData, name: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Password</label>
+                        <input 
+                          type="text" required
+                          value={formData.password || ''}
+                          onChange={e => setFormData({...formData, password: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
+                        />
+                      </div>
+                    </>
+                  )}
+                  {modalType === 'teacher' && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">NIP</label>
+                        <input 
+                          type="text" required
+                          value={formData.identifier || ''}
+                          onChange={e => setFormData({...formData, identifier: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Nama Guru</label>
+                        <input 
+                          type="text" required
+                          value={formData.name || ''}
+                          onChange={e => setFormData({...formData, name: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Mata Pelajaran</label>
+                        <input 
+                          type="text" required
+                          value={formData.subject || ''}
+                          onChange={e => setFormData({...formData, subject: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Password</label>
+                        <input 
+                          type="text" required
+                          value={formData.password || ''}
+                          onChange={e => setFormData({...formData, password: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
+                        />
+                      </div>
+                    </>
+                  )}
+                  <div className="flex gap-3 pt-4">
+                    <button 
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-all"
+                    >
+                      Batal
+                    </button>
+                    <button 
+                      type="submit"
+                      className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all"
+                    >
+                      Simpan
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+
   return (
-    <div className="font-sans antialiased text-neutral-900">
+    <div className="font-sans antialiased text-slate-900">
       {view === 'landing' && renderLanding()}
       {view === 'login' && renderLogin()}
       {view === 'dashboard' && renderDashboard()}
       {view === 'exam' && renderExam()}
       {view === 'create_exam' && renderCreateExam()}
       {view === 'grade_submission' && renderGradeSubmission()}
-      {view === 'admin' && (
-        <AdminUI
-          user={user}
-          handleLogout={handleLogout}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          adminClasses={adminClasses}
-          adminStudents={adminStudents}
-          adminTeachers={adminTeachers}
-          handleAdminAction={handleAdminAction}
-          isModalOpen={isModalOpen}
-          setIsModalOpen={setIsModalOpen}
-          modalType={modalType}
-          editingItem={editingItem}
-          formData={formData}
-          setFormData={setFormData}
-          saveAdminData={saveAdminData}
-        />
-      )}
+      {view === 'admin' && renderAdminDashboard()}
     </div>
   );
 }
