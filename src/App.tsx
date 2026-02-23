@@ -28,7 +28,8 @@ import {
   Trash2,
   ShieldCheck,
   Plus,
-  Database
+  Database,
+  RefreshCw
 } from 'lucide-react';
 
 // --- Types ---
@@ -139,13 +140,21 @@ export default function App() {
 
   useEffect(() => {
     const checkDb = async () => {
+      // First, check if API server is even reachable
+      const pingResult = await safeFetch('/api/ping');
+      if (!pingResult.ok) {
+        setDbStatus('offline');
+        setDbErrorMessage(`Server API tidak dapat dijangkau (Status: ${pingResult.status}). Pastikan server sedang berjalan.`);
+        if (dbStatus === 'checking') setShowSetupModal(true);
+        return;
+      }
+
       const result = await safeFetch('/api/health/supabase');
       const { data, ok, error } = result;
       setDbStatus(ok ? 'online' : 'offline');
       if (!ok) {
-        const msg = data?.message || data?.details || error || 'Gagal terhubung ke server API';
+        const msg = data?.message || data?.details || error || 'Gagal terhubung ke database melalui API';
         setDbErrorMessage(msg);
-        // Only show modal automatically if it's the first check and it fails
         if (dbStatus === 'checking') {
           setShowSetupModal(true);
         }
@@ -1683,12 +1692,26 @@ export default function App() {
                 )}
               </div>
 
-              <button 
-                onClick={() => setShowSetupModal(false)}
-                className="w-full mt-8 py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all"
-              >
-                Saya Mengerti
-              </button>
+              <div className="flex gap-4 mt-8">
+                <button 
+                  onClick={() => {
+                    setDbStatus('checking');
+                    // checkDb is in useEffect, but we can trigger it by changing a state or just calling it if we expose it
+                    // For now, let's just refresh the page as a simple way to re-run all checks
+                    window.location.reload();
+                  }}
+                  className="flex-1 py-4 bg-slate-100 text-slate-900 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                >
+                  <RefreshCw size={18} className={dbStatus === 'checking' ? 'animate-spin' : ''} />
+                  Cek Ulang
+                </button>
+                <button 
+                  onClick={() => setShowSetupModal(false)}
+                  className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all"
+                >
+                  Saya Mengerti
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>

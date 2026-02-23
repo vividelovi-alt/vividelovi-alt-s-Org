@@ -53,6 +53,11 @@ const PORT = 3000;
 
 app.use(express.json());
 
+// Simple Ping Route
+app.get("/api/ping", (req, res) => {
+  res.json({ status: "ok", message: "API server is running" });
+});
+
 // Health Check for Supabase
 app.get("/api/health/supabase", asyncHandler(async (req, res) => {
   try {
@@ -484,7 +489,7 @@ app.use((err: any, req: any, res: any, next: any) => {
   });
 });
 
-async function setupVite() {
+async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -497,14 +502,14 @@ async function setupVite() {
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
+
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
-setupVite();
-
-if (!process.env.VERCEL) {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
+startServer();
 
 export default app;
