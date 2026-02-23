@@ -28,10 +28,16 @@ Atur variabel lingkungan berikut di Vercel atau file `.env`:
 
 ## Deployment ke Vercel
 Aplikasi ini sudah dikonfigurasi untuk Vercel.
-1. Hubungkan repository ke Vercel.
-2. Pastikan **Framework Preset** diatur ke `Vite` atau `Other`.
-3. Masukkan **Environment Variables** (`SUPABASE_URL` dan `SUPABASE_KEY`).
-4. Vercel akan otomatis menjalankan `npm run build` dan menggunakan `vercel.json` untuk routing.
+
+> [!CAUTION]
+> **PENTING:** Anda WAJIB menambahkan Environment Variables di Dashboard Vercel agar aplikasi bisa terhubung ke Supabase. Tanpa ini, aplikasi akan menampilkan status "Database Offline".
+
+1. Buka Dashboard Vercel Anda.
+2. Masuk ke **Settings** -> **Environment Variables**.
+3. Tambahkan dua variabel berikut:
+   - `SUPABASE_URL`: (Ambil dari Dashboard Supabase -> Settings -> API)
+   - `SUPABASE_KEY`: (Gunakan **service_role** key untuk akses penuh, atau **anon** key jika RLS aktif)
+4. Simpan dan lakukan **Redeploy**.
 
 ## Cara Menjalankan Lokal
 1. Clone repository.

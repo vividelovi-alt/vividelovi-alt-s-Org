@@ -52,10 +52,26 @@ app.use(express.json());
 
 // Health Check for Supabase
 app.get("/api/health/supabase", asyncHandler(async (req, res) => {
-  const client = getSupabase();
-  const { data, error } = await client.from('users').select('count', { count: 'exact', head: true });
-  if (error) throw error;
-  res.json({ status: "connected", total_users: data });
+  try {
+    const client = getSupabase();
+    const { data, error } = await client.from('users').select('count', { count: 'exact', head: true });
+    if (error) {
+      console.error("Supabase Health Check Error:", error);
+      return res.status(500).json({ 
+        status: "error", 
+        message: "Database connection failed", 
+        details: error.message 
+      });
+    }
+    res.json({ status: "connected", total_users: data });
+  } catch (err: any) {
+    console.error("Supabase Initialization Error:", err);
+    res.status(500).json({ 
+      status: "error", 
+      message: "Supabase initialization failed", 
+      details: err.message 
+    });
+  }
 }));
 
 // API Routes
