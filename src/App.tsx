@@ -112,6 +112,7 @@ export default function App() {
   const [studentAnswers, setStudentAnswers] = useState<Record<number, string>>({});
   const [gradingScores, setGradingScores] = useState<Record<number, number>>({});
   const [dbStatus, setDbStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
 
   // Teacher Create Exam State
   const [newExamSubject, setNewExamSubject] = useState('');
@@ -136,8 +137,13 @@ export default function App() {
 
   useEffect(() => {
     const checkDb = async () => {
-      const { ok } = await safeFetch('/api/health/supabase');
+      const { data, ok } = await safeFetch('/api/health/supabase');
       setDbStatus(ok ? 'online' : 'offline');
+      if (!ok) {
+        setDbErrorMessage(data?.details || data?.message || 'Gagal terhubung ke database');
+      } else {
+        setDbErrorMessage(null);
+      }
     };
     checkDb();
     const interval = setInterval(checkDb, 30000); // Check every 30s
@@ -1599,7 +1605,7 @@ export default function App() {
   );
 
   const renderDbStatus = () => (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-4 right-4 z-50 group">
       <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm text-[10px] font-bold uppercase tracking-wider transition-all ${
         dbStatus === 'online' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
         dbStatus === 'offline' ? 'bg-red-50 text-red-600 border-red-100' : 
@@ -1613,6 +1619,13 @@ export default function App() {
           'bg-slate-300'
         }`} />
       </div>
+      {dbStatus === 'offline' && dbErrorMessage && (
+        <div className="absolute bottom-full right-0 mb-2 w-64 bg-white p-3 rounded-2xl shadow-xl border border-red-100 text-[10px] text-red-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          <p className="font-bold mb-1 uppercase tracking-widest">Error Detail:</p>
+          {dbErrorMessage}
+          <p className="mt-2 text-slate-400 italic">Pastikan SUPABASE_URL dan SUPABASE_KEY sudah benar di pengaturan Environment Variables.</p>
+        </div>
+      )}
     </div>
   );
 

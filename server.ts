@@ -24,8 +24,11 @@ function getSupabase() {
     const supabaseKey = process.env.SUPABASE_KEY?.trim();
 
     if (!supabaseUrl || !supabaseKey) {
-      console.error("ERROR: SUPABASE_URL or SUPABASE_KEY is not defined in environment variables.");
-      throw new Error("Supabase configuration missing. Please set SUPABASE_URL and SUPABASE_KEY.");
+      const missing = [];
+      if (!supabaseUrl) missing.push("SUPABASE_URL");
+      if (!supabaseKey) missing.push("SUPABASE_KEY");
+      console.error(`ERROR: Missing environment variables: ${missing.join(", ")}`);
+      throw new Error(`Konfigurasi Supabase tidak lengkap. Variabel yang hilang: ${missing.join(", ")}`);
     }
 
     try {
