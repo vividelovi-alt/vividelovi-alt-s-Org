@@ -498,6 +498,28 @@ app.delete("/api/admin/teachers/:id", asyncHandler(async (req, res) => {
   res.json({ success: true });
 }));
 
+app.post("/api/admin/students/bulk", asyncHandler(async (req, res) => {
+  const { students } = req.body;
+  if (!Array.isArray(students) || students.length === 0) {
+    return res.status(400).json({ success: false, message: "Data siswa tidak valid" });
+  }
+
+  const studentsToInsert = students.map((s: any) => ({
+    role: 'student',
+    identifier: String(s.identifier),
+    name: s.name,
+    password: String(s.password || 'siswa123'),
+    class: s.class
+  }));
+
+  const { error } = await supabase.from('users').insert(studentsToInsert);
+  if (error) {
+    console.error("Error bulk adding students:", error);
+    return res.status(400).json({ success: false, message: error.message || "Gagal menambah data siswa secara massal" });
+  }
+  res.json({ success: true, count: studentsToInsert.length });
+}));
+
 // Error handling middleware
 app.use((err: any, req: any, res: any, next: any) => {
   console.error("API Error:", err);

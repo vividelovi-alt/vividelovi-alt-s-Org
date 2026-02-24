@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import * as XLSX from 'xlsx';
 import { 
   User, 
   GraduationCap, 
@@ -31,7 +32,11 @@ import {
   Plus,
   Database,
   RefreshCw,
-  Target
+  Target,
+  Download,
+  Upload,
+  X,
+  AlertCircle
 } from 'lucide-react';
 
 // --- Types ---
@@ -85,6 +90,12 @@ interface AnswerDetail extends Question {
   score: number;
 }
 
+interface Notification {
+  message: string;
+  type: 'success' | 'error';
+  id: number;
+}
+
 // --- Components ---
 
 export default function App() {
@@ -99,6 +110,8 @@ export default function App() {
   const [adminClasses, setAdminClasses] = useState<{id: number, name: string}[]>([]);
   const [adminStudents, setAdminStudents] = useState<UserData[]>([]);
   const [adminTeachers, setAdminTeachers] = useState<UserData[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'class' | 'student' | 'teacher'>('class');
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -118,6 +131,15 @@ export default function App() {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
   const [showSetupModal, setShowSetupModal] = useState(false);
+  const [notification, setNotification] = useState<Notification | null>(null);
+
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    const id = Date.now();
+    setNotification({ message, type, id });
+    setTimeout(() => {
+      setNotification(prev => prev?.id === id ? null : prev);
+    }, 5000);
+  };
 
   // Teacher Create Exam State
   const [newExamSubject, setNewExamSubject] = useState('');
@@ -406,10 +428,88 @@ export default function App() {
       if (ok) {
         setIsModalOpen(false);
         fetchAdminData();
+        showNotification(`Berhasil ${editingItem ? 'memperbarui' : 'menambah'} data!`);
       } else {
-        alert(data?.message || 'Terjadi kesalahan');
+        showNotification(data?.message || 'Terjadi kesalahan', 'error');
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error(err);
+      showNotification('Terjadi kesalahan koneksi', 'error');
+    }
+  };
+
+  const downloadStudentTemplate = () => {
+    const templateData = [
+      { 'Nama Siswa': 'Contoh Siswa', 'NIS': '123456', 'Kelas': 'X-IPA-1', 'Password': 'password123' }
+    ];
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template Siswa");
+    XLSX.writeFile(workbook, "Template_Upload_Siswa.xlsx");
+  };
+
+  const handleStudentExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) {
+          showNotification("File kosong atau format tidak sesuai", "error");
+          setIsUploading(false);
+          return;
+        }
+
+        // Map Excel headers to database fields
+        const students = data.map((row: any) => ({
+          name: row['Nama Siswa'],
+          identifier: row['NIS'],
+          class: row['Kelas'],
+          password: row['Password'] || 'siswa123'
+        })).filter(s => s.name && s.identifier && s.class);
+
+        if (students.length === 0) {
+          showNotification("Format kolom tidak sesuai. Gunakan: 'Nama Siswa', 'NIS', 'Kelas'", "error");
+          setIsUploading(false);
+          return;
+        }
+
+        if (confirm(`Yakin ingin mengupload ${students.length} data siswa?`)) {
+          const { data: resData, ok } = await safeFetch('/api/admin/students/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ students })
+          });
+
+          if (ok) {
+            showNotification(`Berhasil mengupload ${resData.count} siswa!`);
+            fetchAdminData();
+          } else {
+            showNotification(resData?.message || "Gagal mengupload data", "error");
+          }
+        }
+      } catch (err) {
+        console.error("Excel processing error", err);
+        showNotification("Gagal memproses file Excel", "error");
+      } finally {
+        setIsUploading(false);
+        // Reset input
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.onerror = () => {
+      showNotification("Gagal membaca file", "error");
+      setIsUploading(false);
+    };
+    reader.readAsBinaryString(file);
   };
 
   const submitGrades = async () => {
@@ -421,12 +521,12 @@ export default function App() {
         body: JSON.stringify({ grades: gradingScores })
       });
       if (ok && data?.success) {
-        alert("Penilaian berhasil disimpan!");
+        showNotification("Penilaian berhasil disimpan!");
         setView('dashboard');
         fetchSubmissions();
       }
     } catch (err) {
-      alert("Gagal menyimpan penilaian");
+      showNotification("Gagal menyimpan penilaian", "error");
     }
   };
 
@@ -1532,13 +1632,43 @@ export default function App() {
               <h3 className="text-lg font-bold text-slate-900">
                 {activeTab === 'admin_classes' ? 'Manajemen Kelas' : activeTab === 'admin_students' ? 'Manajemen Siswa' : 'Manajemen Guru'}
               </h3>
-              <button 
-                onClick={() => handleAdminAction('add', activeTab === 'admin_classes' ? 'class' : activeTab === 'admin_students' ? 'student' : 'teacher')}
-                className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-md"
-              >
-                <Plus size={18} />
-                Tambah Data
-              </button>
+              <div className="flex items-center gap-2">
+                {activeTab === 'admin_students' && (
+                  <>
+                    <button 
+                      onClick={downloadStudentTemplate}
+                      className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-emerald-100"
+                      title="Download Template Excel"
+                    >
+                      <Download size={18} />
+                      <span className="hidden sm:inline">Template</span>
+                    </button>
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className={`bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-blue-100 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title="Upload Data Excel"
+                    >
+                      {isUploading ? <RefreshCw size={18} className="animate-spin" /> : <Upload size={18} />}
+                      <span className="hidden sm:inline">{isUploading ? 'Memproses...' : 'Upload Excel'}</span>
+                    </button>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept=".xlsx, .xls, .csv"
+                      onChange={handleStudentExcelUpload}
+                    />
+                  </>
+                )}
+                <button 
+                  onClick={() => handleAdminAction('add', activeTab === 'admin_classes' ? 'class' : activeTab === 'admin_students' ? 'student' : 'teacher')}
+                  className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-md"
+                >
+                  <Plus size={18} />
+                  Tambah Data
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -1618,8 +1748,55 @@ export default function App() {
         </div>
       </div>
 
+      {/* Notifications */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 20, x: '-50%' }}
+            className="fixed bottom-8 left-1/2 z-[200] w-full max-w-md px-4"
+          >
+            <div className={`flex items-center gap-3 p-4 rounded-2xl shadow-2xl border ${
+              notification.type === 'success' 
+                ? 'bg-emerald-50 border-emerald-100 text-emerald-800' 
+                : 'bg-red-50 border-red-100 text-red-800'
+            }`}>
+              {notification.type === 'success' ? (
+                <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" />
+              ) : (
+                <AlertCircle className="w-6 h-6 text-red-500 shrink-0" />
+              )}
+              <p className="text-sm font-bold flex-1">{notification.message}</p>
+              <button 
+                onClick={() => setNotification(null)}
+                className="p-1 hover:bg-black/5 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Admin Modal */}
       <AnimatePresence>
+        {isUploading && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px]">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4"
+            >
+              <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+              <div className="text-center">
+                <h3 className="text-lg font-bold text-slate-900">Memproses Data</h3>
+                <p className="text-sm text-slate-500">Mohon tunggu sebentar...</p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div 
