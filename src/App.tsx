@@ -512,6 +512,80 @@ export default function App() {
     reader.readAsBinaryString(file);
   };
 
+  const downloadTeacherTemplate = () => {
+    const templateData = [
+      { 'Nama Guru': 'Contoh Guru', 'NIP': '1987654321', 'Mata Pelajaran': 'Matematika', 'Password': 'password123' }
+    ];
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template Guru");
+    XLSX.writeFile(workbook, "Template_Upload_Guru.xlsx");
+  };
+
+  const handleTeacherExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) {
+          showNotification("File kosong atau format tidak sesuai", "error");
+          setIsUploading(false);
+          return;
+        }
+
+        // Map Excel headers to database fields
+        const teachers = data.map((row: any) => ({
+          name: row['Nama Guru'],
+          identifier: row['NIP'],
+          subject: row['Mata Pelajaran'],
+          password: row['Password'] || 'guru123'
+        })).filter(t => t.name && t.identifier && t.subject);
+
+        if (teachers.length === 0) {
+          showNotification("Format kolom tidak sesuai. Gunakan: 'Nama Guru', 'NIP', 'Mata Pelajaran'", "error");
+          setIsUploading(false);
+          return;
+        }
+
+        if (confirm(`Yakin ingin mengupload ${teachers.length} data guru?`)) {
+          const { data: resData, ok } = await safeFetch('/api/admin/teachers/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ teachers })
+          });
+
+          if (ok) {
+            showNotification(`Berhasil mengupload ${resData.count} guru!`);
+            fetchAdminData();
+          } else {
+            showNotification(resData?.message || "Gagal mengupload data", "error");
+          }
+        }
+      } catch (err) {
+        console.error("Excel processing error", err);
+        showNotification("Gagal memproses file Excel", "error");
+      } finally {
+        setIsUploading(false);
+        // Reset input
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.onerror = () => {
+      showNotification("Gagal membaca file", "error");
+      setIsUploading(false);
+    };
+    reader.readAsBinaryString(file);
+  };
+
   const submitGrades = async () => {
     if (!activeSubmission) return;
     try {
@@ -1658,6 +1732,34 @@ export default function App() {
                       className="hidden" 
                       accept=".xlsx, .xls, .csv"
                       onChange={handleStudentExcelUpload}
+                    />
+                  </>
+                )}
+                {activeTab === 'admin_teachers' && (
+                  <>
+                    <button 
+                      onClick={downloadTeacherTemplate}
+                      className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-emerald-100"
+                      title="Download Template Excel"
+                    >
+                      <Download size={18} />
+                      <span className="hidden sm:inline">Template</span>
+                    </button>
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className={`bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-blue-100 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title="Upload Data Excel"
+                    >
+                      {isUploading ? <RefreshCw size={18} className="animate-spin" /> : <Upload size={18} />}
+                      <span className="hidden sm:inline">{isUploading ? 'Memproses...' : 'Upload Excel'}</span>
+                    </button>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept=".xlsx, .xls, .csv"
+                      onChange={handleTeacherExcelUpload}
                     />
                   </>
                 )}
