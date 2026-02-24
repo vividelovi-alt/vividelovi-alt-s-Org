@@ -30,7 +30,8 @@ import {
   ShieldCheck,
   Plus,
   Database,
-  RefreshCw
+  RefreshCw,
+  Target
 } from 'lucide-react';
 
 // --- Types ---
@@ -568,20 +569,29 @@ export default function App() {
   // --- Render Helpers ---
 
   const renderLanding = () => (
-    <div className="min-h-screen bg-modern flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-modern flex flex-col items-center justify-start pt-0 p-4">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-12"
+        className="text-center mb-0 w-full max-w-3xl"
       >
-        <div className="w-24 h-24 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-violet-200">
-          <BookOpen className="text-white w-12 h-12" />
-        </div>
-        <h1 className="text-6xl font-black text-slate-900 mb-4 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-fuchsia-600">EduSmart</h1>
-        <p className="text-slate-500 text-lg font-medium">Sistem Manajemen Ujian Sekolah Terpadu</p>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="mb-0"
+        >
+          <img 
+            src="https://raw.githubusercontent.com/vividelovi-alt/vividelovi-alt-s-Org/refs/heads/main/Logo%20PRESISI%20dengan%20target%20dan%20centang.png" 
+            alt="PRESISI"
+            className="w-full h-auto mx-auto drop-shadow-2xl"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </motion.div>
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl -mt-12 relative z-10">
         <motion.button
           whileHover={{ scale: 1.02, y: -4 }}
           whileTap={{ scale: 0.98 }}
@@ -717,10 +727,10 @@ export default function App() {
       <nav className="bg-white/80 backdrop-blur-md border-b border-violet-100 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-12 h-12 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-200">
-              <BookOpen className="text-white w-7 h-7" />
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-400 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
+              <Target className="text-white w-7 h-7" />
             </div>
-            <span className="text-2xl font-black text-slate-900 tracking-tight ml-1">EduSmart</span>
+            <span className="text-2xl font-black text-slate-900 tracking-tight ml-1">PRESISI</span>
             {isDemoMode && (
               <div className="ml-4 flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />

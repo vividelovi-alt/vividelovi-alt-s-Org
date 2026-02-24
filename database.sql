@@ -1,4 +1,4 @@
--- Skema Database EduSmart
+-- Skema Database PRESISI
 
 -- 1. Tabel Kelas
 CREATE TABLE IF NOT EXISTS classes (

@@ -1,4 +1,4 @@
-# EduSmart - Sistem Ujian Sekolah
+# PRESISI - Sistem Ujian Sekolah
 
 Aplikasi manajemen ujian sekolah modern yang dibangun dengan React, Express, dan Supabase.
 
