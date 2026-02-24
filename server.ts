@@ -59,8 +59,15 @@ app.use(express.json());
 
 // Simple Ping Route
 app.get("/api/ping", (req, res) => {
-  console.log("Ping received");
-  res.json({ status: "ok", message: "API server is running" });
+  res.json({ 
+    status: "ok", 
+    message: "API server is running",
+    env: {
+      hasUrl: !!process.env.SUPABASE_URL,
+      hasKey: !!process.env.SUPABASE_KEY,
+      nodeEnv: process.env.NODE_ENV
+    }
+  });
 });
 
 // Health Check for Supabase
@@ -504,6 +511,8 @@ app.use((err: any, req: any, res: any, next: any) => {
 
 async function startServer() {
   console.log("Starting server initialization...");
+  const PORT = 3000;
+  
   try {
     if (process.env.NODE_ENV !== "production") {
       console.log("Environment: Development. Attempting to start Vite...");
@@ -511,7 +520,7 @@ async function startServer() {
         const vite = await createViteServer({
           server: { 
             middlewareMode: true,
-            hmr: false // Disable HMR to avoid issues in this environment
+            hmr: false
           },
           appType: "spa",
         });
@@ -519,13 +528,12 @@ async function startServer() {
         console.log("Vite middleware successfully loaded.");
       } catch (viteErr) {
         console.error("Vite failed to start:", viteErr);
-        // Fallback: if Vite fails, we might still want to serve the API
         app.get("/", (req, res) => {
-          res.status(500).send("Vite failed to start. API is running, but frontend is unavailable. Check server logs.");
+          res.status(500).send(`Vite failed to start: ${viteErr instanceof Error ? viteErr.message : String(viteErr)}`);
         });
       }
-    } else if (!process.env.VERCEL) {
-      console.log("Environment: Production. Serving static files from dist...");
+    } else {
+      console.log("Environment: Production. Serving static files...");
       const distPath = path.join(__dirname, "dist");
       app.use(express.static(distPath));
       app.get("*", (req, res) => {
@@ -533,18 +541,15 @@ async function startServer() {
       });
     }
 
-    if (!process.env.VERCEL) {
-      app.listen(PORT, "0.0.0.0", () => {
-        console.log(`Server is listening on http://0.0.0.0:${PORT}`);
-      });
-    }
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server is listening on http://0.0.0.0:${PORT}`);
+    });
   } catch (err) {
     console.error("CRITICAL ERROR during startServer:", err);
-    if (!process.env.VERCEL) {
-      app.listen(PORT, "0.0.0.0", () => {
-        console.log(`Server running in EMERGENCY mode on port ${PORT}`);
-      });
-    }
+    // Ensure we still listen so the platform doesn't report a total failure
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running in EMERGENCY mode on port ${PORT}`);
+    });
   }
 }
 
