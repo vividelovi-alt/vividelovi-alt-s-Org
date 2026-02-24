@@ -112,7 +112,8 @@ export default function App() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [studentAnswers, setStudentAnswers] = useState<Record<number, string>>({});
   const [gradingScores, setGradingScores] = useState<Record<number, number>>({});
-  const [dbStatus, setDbStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [dbStatus, setDbStatus] = useState<'checking' | 'online' | 'offline' | 'demo'>('checking');
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
   const [showSetupModal, setShowSetupModal] = useState(false);
 
@@ -121,7 +122,90 @@ export default function App() {
   const [newExamClass, setNewExamClass] = useState('');
   const [newQuestions, setNewQuestions] = useState<Partial<Question>[]>([]);
 
+  // --- Mock Data for Demo Mode ---
+  useEffect(() => {
+    if (isDemoMode && !localStorage.getItem('edu_smart_demo_initialized')) {
+      const mockUsers = [
+        { id: 1, role: 'admin', identifier: 'admin', name: 'Administrator', password: 'admin', class: null, subject: null },
+        { id: 2, role: 'teacher', identifier: 'guru1', name: 'Budi Santoso', password: 'guru', class: null, subject: 'Matematika' },
+        { id: 3, role: 'student', identifier: 'siswa1', name: 'Ani Wijaya', password: 'siswa', class: '10-A', subject: null }
+      ];
+      const mockClasses = [{ id: 1, name: '10-A' }, { id: 2, name: '10-B' }];
+      
+      localStorage.setItem('edu_smart_users', JSON.stringify(mockUsers));
+      localStorage.setItem('edu_smart_classes', JSON.stringify(mockClasses));
+      localStorage.setItem('edu_smart_exams', JSON.stringify([]));
+      localStorage.setItem('edu_smart_questions', JSON.stringify([]));
+      localStorage.setItem('edu_smart_submissions', JSON.stringify([]));
+      localStorage.setItem('edu_smart_answers', JSON.stringify([]));
+      localStorage.setItem('edu_smart_demo_initialized', 'true');
+    }
+  }, [isDemoMode]);
+
+  const handleDemoApi = async (url: string, options?: RequestInit): Promise<any> => {
+    const method = options?.method || 'GET';
+    const body = options?.body ? JSON.parse(options.body as string) : null;
+    const getStorage = (key: string) => JSON.parse(localStorage.getItem(`edu_smart_${key}`) || '[]');
+    const setStorage = (key: string, data: any) => localStorage.setItem(`edu_smart_${key}`, JSON.stringify(data));
+
+    // Simulate network delay
+    await new Promise(r => setTimeout(r, 300));
+
+    if (url.includes('/api/ping')) return { data: { status: 'ok' }, ok: true, status: 200 };
+    if (url.includes('/api/health/supabase')) return { data: { status: 'connected' }, ok: true, status: 200 };
+
+    if (url.includes('/api/login')) {
+      const users = getStorage('users');
+      const user = users.find((u: any) => u.identifier === body.identifier && u.password === body.password && u.role === body.role);
+      if (user) return { data: { success: true, user }, ok: true, status: 200 };
+      return { data: { success: false, message: 'Identifier atau password salah' }, ok: false, status: 401 };
+    }
+
+    if (url.includes('/api/admin/classes')) {
+      if (method === 'GET') return { data: getStorage('classes'), ok: true, status: 200 };
+      if (method === 'POST') {
+        const classes = getStorage('classes');
+        classes.push({ id: Date.now(), name: body.name });
+        setStorage('classes', classes);
+        return { data: { success: true }, ok: true, status: 200 };
+      }
+    }
+
+    if (url.includes('/api/exams')) {
+      if (method === 'GET') {
+        const exams = getStorage('exams');
+        const users = getStorage('users');
+        const { role, userId, studentClass } = Object.fromEntries(new URLSearchParams(url.split('?')[1]));
+        
+        if (role === 'teacher') {
+          return { data: exams.filter((e: any) => e.teacher_id === parseInt(userId)), ok: true, status: 200 };
+        } else {
+          const submissions = getStorage('submissions');
+          const submittedExamIds = submissions.filter((s: any) => s.student_id === parseInt(userId)).map((s: any) => s.exam_id);
+          const availableExams = exams.filter((e: any) => e.class === studentClass && !submittedExamIds.includes(e.id));
+          return { data: availableExams.map((e: any) => ({ ...e, teacher_name: users.find((u: any) => u.id === e.teacher_id)?.name })), ok: true, status: 200 };
+        }
+      }
+      if (method === 'POST') {
+        const exams = getStorage('exams');
+        const questions = getStorage('questions');
+        const newExam = { id: Date.now(), ...body, created_at: new Date().toISOString() };
+        exams.push(newExam);
+        setStorage('exams', exams);
+        
+        const newQuestions = body.questions.map((q: any) => ({ id: Math.random(), exam_id: newExam.id, ...q }));
+        questions.push(...newQuestions);
+        setStorage('questions', questions);
+        
+        return { data: { success: true, examId: newExam.id }, ok: true, status: 200 };
+      }
+    }
+
+    return { data: [], ok: true, status: 200 };
+  };
+
   const safeFetch = async (url: string, options?: RequestInit) => {
+    if (isDemoMode) return handleDemoApi(url, options);
     try {
       const res = await fetch(url, options);
       const text = await res.text();
@@ -140,6 +224,13 @@ export default function App() {
   };
 
   useEffect(() => {
+    const savedMode = localStorage.getItem('edu_smart_mode');
+    if (savedMode === 'demo') {
+      setIsDemoMode(true);
+      setDbStatus('demo');
+      return;
+    }
+
     const checkDb = async () => {
       // First, check if API server is even reachable
       const pingResult = await safeFetch('/api/ping');
@@ -622,6 +713,21 @@ export default function App() {
               <BookOpen className="text-white w-6 h-6" />
             </div>
             <span className="text-xl font-bold text-slate-900 tracking-tight">EduSmart</span>
+            {isDemoMode && (
+              <div className="ml-4 flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Mode Demo</span>
+                <button 
+                  onClick={() => {
+                    localStorage.removeItem('edu_smart_mode');
+                    window.location.reload();
+                  }}
+                  className="ml-2 text-[10px] text-emerald-600 hover:text-emerald-800 underline font-bold"
+                >
+                  Hubungkan Database
+                </button>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden md:block text-right">
@@ -1707,26 +1813,39 @@ export default function App() {
                 )}
               </div>
 
-              <div className="flex gap-4 mt-8">
-                <button 
-                  onClick={() => {
-                    setDbStatus('checking');
-                    // checkDb is in useEffect, but we can trigger it by changing a state or just calling it if we expose it
-                    // For now, let's just refresh the page as a simple way to re-run all checks
-                    window.location.reload();
-                  }}
-                  className="flex-1 py-4 bg-slate-100 text-slate-900 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
-                >
-                  <RefreshCw size={18} className={dbStatus === 'checking' ? 'animate-spin' : ''} />
-                  Cek Ulang
-                </button>
-                <button 
-                  onClick={() => setShowSetupModal(false)}
-                  className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all"
-                >
-                  Saya Mengerti
-                </button>
-              </div>
+                <div className="flex flex-col gap-3 mt-8">
+                  <button 
+                    onClick={() => {
+                      setIsDemoMode(true);
+                      setDbStatus('demo');
+                      localStorage.setItem('edu_smart_mode', 'demo');
+                      setShowSetupModal(false);
+                    }}
+                    className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 size={18} />
+                    Gunakan Mode Demo (Otomatis)
+                  </button>
+                  
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => {
+                        setDbStatus('checking');
+                        window.location.reload();
+                      }}
+                      className="flex-1 py-4 bg-slate-100 text-slate-900 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw size={18} className={dbStatus === 'checking' ? 'animate-spin' : ''} />
+                      Cek Ulang
+                    </button>
+                    <button 
+                      onClick={() => setShowSetupModal(false)}
+                      className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+                </div>
             </div>
           </motion.div>
         </div>

@@ -503,33 +503,46 @@ app.use((err: any, req: any, res: any, next: any) => {
 });
 
 async function startServer() {
+  console.log("Starting server initialization...");
   try {
     if (process.env.NODE_ENV !== "production") {
-      console.log("Starting Vite in middleware mode...");
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: "spa",
-      });
-      app.use(vite.middlewares);
-      console.log("Vite middleware loaded.");
+      console.log("Environment: Development. Attempting to start Vite...");
+      try {
+        const vite = await createViteServer({
+          server: { 
+            middlewareMode: true,
+            hmr: false // Disable HMR to avoid issues in this environment
+          },
+          appType: "spa",
+        });
+        app.use(vite.middlewares);
+        console.log("Vite middleware successfully loaded.");
+      } catch (viteErr) {
+        console.error("Vite failed to start:", viteErr);
+        // Fallback: if Vite fails, we might still want to serve the API
+        app.get("/", (req, res) => {
+          res.status(500).send("Vite failed to start. API is running, but frontend is unavailable. Check server logs.");
+        });
+      }
     } else if (!process.env.VERCEL) {
-      app.use(express.static(path.join(__dirname, "dist")));
+      console.log("Environment: Production. Serving static files from dist...");
+      const distPath = path.join(__dirname, "dist");
+      app.use(express.static(distPath));
       app.get("*", (req, res) => {
-        res.sendFile(path.join(__dirname, "dist", "index.html"));
+        res.sendFile(path.join(distPath, "index.html"));
       });
     }
 
     if (!process.env.VERCEL) {
       app.listen(PORT, "0.0.0.0", () => {
-        console.log(`Server running on http://localhost:${PORT}`);
+        console.log(`Server is listening on http://0.0.0.0:${PORT}`);
       });
     }
   } catch (err) {
-    console.error("CRITICAL: Failed to start server:", err);
-    // In dev mode, we still want the server to listen if possible so we can see errors
-    if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+    console.error("CRITICAL ERROR during startServer:", err);
+    if (!process.env.VERCEL) {
       app.listen(PORT, "0.0.0.0", () => {
-        console.log(`Server running in ERROR mode on http://localhost:${PORT}`);
+        console.log(`Server running in EMERGENCY mode on port ${PORT}`);
       });
     }
   }
