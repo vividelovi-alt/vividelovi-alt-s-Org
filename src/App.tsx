@@ -14,6 +14,7 @@ import {
   PlusCircle, 
   CheckCircle2, 
   ChevronRight,
+  ChevronLeft,
   BookOpen,
   ClipboardList,
   UserCircle,
@@ -567,53 +568,56 @@ export default function App() {
   // --- Render Helpers ---
 
   const renderLanding = () => (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-modern flex flex-col items-center justify-center p-4">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-12"
       >
-        <h1 className="text-5xl font-bold text-slate-900 mb-4 tracking-tight">EduSmart</h1>
-        <p className="text-slate-500 text-lg">Sistem Manajemen Ujian Sekolah Terpadu</p>
+        <div className="w-24 h-24 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-violet-200">
+          <BookOpen className="text-white w-12 h-12" />
+        </div>
+        <h1 className="text-6xl font-black text-slate-900 mb-4 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-fuchsia-600">EduSmart</h1>
+        <p className="text-slate-500 text-lg font-medium">Sistem Manajemen Ujian Sekolah Terpadu</p>
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
         <motion.button
-          whileHover={{ scale: 1.02 }}
+          whileHover={{ scale: 1.02, y: -4 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => { setRole('student'); setView('login'); }}
-          className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center group hover:border-indigo-500 transition-colors"
+          className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center group hover:border-violet-400 hover:shadow-xl hover:shadow-violet-100 transition-all duration-300"
         >
-          <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-indigo-500 transition-colors">
-            <GraduationCap className="w-10 h-10 text-indigo-600 group-hover:text-white transition-colors" />
+          <div className="w-20 h-20 bg-violet-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-violet-600 transition-all duration-300">
+            <GraduationCap className="w-10 h-10 text-violet-600 group-hover:text-white transition-colors" />
           </div>
-          <span className="text-2xl font-semibold text-slate-800">SISWA</span>
+          <span className="text-2xl font-bold text-slate-800">SISWA</span>
           <p className="text-slate-500 mt-2 text-sm">Masuk sebagai peserta ujian</p>
         </motion.button>
 
         <motion.button
-          whileHover={{ scale: 1.02 }}
+          whileHover={{ scale: 1.02, y: -4 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => { setRole('teacher'); setView('login'); }}
-          className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center group hover:border-emerald-500 transition-colors"
+          className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center group hover:border-fuchsia-400 hover:shadow-xl hover:shadow-fuchsia-100 transition-all duration-300"
         >
-          <div className="w-20 h-20 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-emerald-500 transition-colors">
-            <User className="w-10 h-10 text-emerald-600 group-hover:text-white transition-colors" />
+          <div className="w-20 h-20 bg-fuchsia-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-fuchsia-600 transition-all duration-300">
+            <User className="w-10 h-10 text-fuchsia-600 group-hover:text-white transition-colors" />
           </div>
-          <span className="text-2xl font-semibold text-slate-800">GURU</span>
+          <span className="text-2xl font-bold text-slate-800">GURU</span>
           <p className="text-slate-500 mt-2 text-sm">Masuk sebagai pengajar</p>
         </motion.button>
 
         <motion.button
-          whileHover={{ scale: 1.02 }}
+          whileHover={{ scale: 1.02, y: -4 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => { setRole('admin'); setView('login'); }}
-          className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center group hover:border-slate-500 transition-colors md:col-span-2"
+          className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center group hover:border-amber-400 hover:shadow-xl hover:shadow-amber-100 transition-all duration-300 md:col-span-2"
         >
-          <div className="w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-slate-500 transition-colors">
-            <UserCircle className="w-10 h-10 text-slate-600 group-hover:text-white transition-colors" />
+          <div className="w-20 h-20 bg-amber-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-amber-500 transition-all duration-300">
+            <UserCircle className="w-10 h-10 text-amber-600 group-hover:text-white transition-colors" />
           </div>
-          <span className="text-2xl font-semibold text-slate-800">ADMIN</span>
+          <span className="text-2xl font-bold text-slate-800">ADMIN</span>
           <p className="text-slate-500 mt-2 text-sm">Masuk sebagai administrator</p>
         </motion.button>
       </div>
@@ -621,49 +625,49 @@ export default function App() {
   );
 
   const renderLogin = () => (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-modern flex items-center justify-center p-4">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white p-10 rounded-3xl shadow-xl border border-slate-100 w-full max-w-md"
+        className="bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-violet-100 border border-slate-50 w-full max-w-md"
       >
         <button 
           onClick={() => setView('landing')}
-          className="text-slate-400 hover:text-slate-600 mb-6 flex items-center gap-1 text-sm font-medium"
+          className="text-slate-400 hover:text-violet-600 mb-6 flex items-center gap-1 text-sm font-bold transition-colors"
         >
-          Kembali
+          <ChevronLeft size={16} /> Kembali
         </button>
         
-        <div className="flex items-center gap-3 mb-8">
-          <div className={`p-3 rounded-xl ${
-            role === 'student' ? 'bg-indigo-100 text-indigo-600' : 
-            role === 'teacher' ? 'bg-emerald-100 text-emerald-600' : 
-            'bg-slate-100 text-slate-600'
+        <div className="flex items-center gap-4 mb-8">
+          <div className={`p-4 rounded-2xl ${
+            role === 'student' ? 'bg-violet-100 text-violet-600' : 
+            role === 'teacher' ? 'bg-fuchsia-100 text-fuchsia-600' : 
+            'bg-amber-100 text-amber-600'
           }`}>
-            {role === 'student' ? <GraduationCap size={24} /> : 
-             role === 'teacher' ? <User size={24} /> : 
-             <ShieldCheck size={24} />}
+            {role === 'student' ? <GraduationCap size={28} /> : 
+             role === 'teacher' ? <User size={28} /> : 
+             <ShieldCheck size={28} />}
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">
               Log In {role === 'student' ? 'Siswa' : role === 'teacher' ? 'Guru' : 'Admin'}
             </h2>
-            <p className="text-slate-500 text-sm">Silakan masukkan kredensial Anda</p>
+            <p className="text-slate-500 text-sm font-medium">Selamat datang kembali!</p>
           </div>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-5">
           {role !== 'admin' && (
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">
                 {role === 'student' ? 'NIS (Nomor Induk Siswa)' : 'NIP (Nomor Induk Pegawai)'}
               </label>
               <input 
                 type="text" 
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className={`w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:border-transparent outline-none transition-all ${
-                  role === 'student' ? 'focus:ring-indigo-500' : 'focus:ring-emerald-500'
+                className={`w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 transition-all font-medium ${
+                  role === 'student' ? 'focus:ring-violet-500' : 'focus:ring-fuchsia-500'
                 }`}
                 placeholder={role === 'student' ? 'Contoh: 12345' : 'Contoh: 98765'}
                 required
@@ -671,17 +675,17 @@ export default function App() {
             </div>
           )}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">
               {role === 'admin' ? 'Password Admin' : 'Password'}
             </label>
             <input 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:border-transparent outline-none transition-all ${
-                role === 'student' ? 'focus:ring-indigo-500' : 
-                role === 'teacher' ? 'focus:ring-emerald-500' : 
-                'focus:ring-slate-900'
+              className={`w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 transition-all font-medium ${
+                role === 'student' ? 'focus:ring-violet-500' : 
+                role === 'teacher' ? 'focus:ring-fuchsia-500' : 
+                'focus:ring-amber-500'
               }`}
               placeholder="••••••••"
               required
@@ -694,9 +698,13 @@ export default function App() {
 
           <button 
             type="submit"
-            className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-transform active:scale-95 ${role === 'student' ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200' : role === 'teacher' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-slate-800 hover:bg-slate-900 shadow-slate-200'}`}
+            className={`w-full py-5 rounded-2xl font-black text-white shadow-lg transition-all transform hover:-translate-y-1 active:scale-95 ${
+              role === 'student' ? 'bg-violet-600 hover:bg-violet-700 shadow-violet-200' : 
+              role === 'teacher' ? 'bg-fuchsia-600 hover:bg-fuchsia-700 shadow-fuchsia-200' : 
+              'bg-slate-800 hover:bg-slate-900 shadow-slate-200'
+            }`}
           >
-            Masuk Sekarang
+            MASUK SEKARANG
           </button>
         </form>
       </motion.div>
@@ -704,15 +712,15 @@ export default function App() {
   );
 
   const renderDashboard = () => (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-modern">
       {/* Navbar */}
-      <nav className="bg-white border-bottom border-slate-200 sticky top-0 z-10">
+      <nav className="bg-white/80 backdrop-blur-md border-b border-violet-100 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
-              <BookOpen className="text-white w-6 h-6" />
+            <div className="w-12 h-12 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-200">
+              <BookOpen className="text-white w-7 h-7" />
             </div>
-            <span className="text-xl font-bold text-slate-900 tracking-tight">EduSmart</span>
+            <span className="text-2xl font-black text-slate-900 tracking-tight ml-1">EduSmart</span>
             {isDemoMode && (
               <div className="ml-4 flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
@@ -762,7 +770,7 @@ export default function App() {
               <div className="w-full space-y-3">
                 <div className="flex justify-between p-3 bg-slate-50 rounded-xl text-sm">
                   <span className="text-slate-500">Status</span>
-                  <span className="font-bold text-indigo-600 uppercase">{user?.role}</span>
+                  <span className="font-bold text-violet-600 uppercase">{user?.role}</span>
                 </div>
                 {user?.role === 'student' && (
                   <div className="flex justify-between p-3 bg-slate-50 rounded-xl text-sm">
@@ -780,7 +788,7 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
               onClick={() => setView('create_exam')}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95"
+              className="w-full bg-fuchsia-600 hover:bg-fuchsia-700 text-white p-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-fuchsia-100 transition-all active:scale-95"
             >
               <PlusCircle size={20} />
               Buat Soal Ujian
@@ -791,17 +799,17 @@ export default function App() {
         {/* Main Content Area */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex bg-white p-1 rounded-2xl border border-violet-100 shadow-sm">
               <button 
                 onClick={() => { setActiveTab('exams'); setSelectedExamId(null); }}
-                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'exams' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'exams' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 <ClipboardList size={18} />
                 Daftar Ujian
               </button>
               <button 
                 onClick={() => { setActiveTab('grades'); setSelectedExamId(null); }}
-                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'grades' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'grades' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 <Award size={18} />
                 Nilai Ujian
@@ -809,7 +817,7 @@ export default function App() {
               {user?.role === 'teacher' && (
                 <button 
                   onClick={() => { setActiveTab('analysis'); setSelectedExamId(null); setAnalysisData(null); }}
-                  className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'analysis' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                  className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'analysis' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 hover:bg-slate-50'}`}
                 >
                   <BarChart3 size={18} />
                   Analisis Soal
@@ -817,7 +825,7 @@ export default function App() {
               )}
             </div>
             
-            <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold self-start sm:self-center">
+            <span className="px-3 py-1 bg-violet-50 text-violet-600 rounded-full text-xs font-bold self-start sm:self-center">
               {activeTab === 'exams' ? `${exams.length} Tersedia` : `${submissions.length} Selesai`}
             </span>
           </div>
@@ -832,12 +840,12 @@ export default function App() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.05 }}
-                      className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-all group"
+                      className="bg-white p-6 rounded-2xl border border-violet-100 shadow-sm hover:border-violet-300 transition-all group"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex gap-4">
-                          <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-indigo-50 transition-colors">
-                            <FileText className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                          <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-violet-50 transition-colors">
+                            <FileText className="text-slate-400 group-hover:text-violet-600 transition-colors" />
                           </div>
                           <div>
                             <h4 className="text-lg font-bold text-slate-900">{exam.subject}</h4>
@@ -1125,7 +1133,7 @@ export default function App() {
   );
 
   const renderExam = () => (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-modern p-6">
       <div className="max-w-3xl mx-auto">
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 mb-8 flex items-center justify-between">
           <div>
@@ -1215,7 +1223,7 @@ export default function App() {
   );
 
   const renderCreateExam = () => (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-modern p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-3xl font-bold text-slate-900">Buat Ujian Baru</h2>
@@ -1356,7 +1364,7 @@ export default function App() {
   );
 
   const renderGradeSubmission = () => (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-modern p-6">
       <div className="max-w-3xl mx-auto">
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 mb-8 flex items-center justify-between">
           <div>
@@ -1456,7 +1464,7 @@ export default function App() {
   );
 
   const renderAdminDashboard = () => (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-modern">
       {/* Admin Header */}
       <div className="bg-slate-900 text-white py-6 px-4 shadow-lg sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -1821,10 +1829,10 @@ export default function App() {
                       localStorage.setItem('edu_smart_mode', 'demo');
                       setShowSetupModal(false);
                     }}
-                    className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-5 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-2xl font-black shadow-xl shadow-violet-200 hover:shadow-violet-300 transition-all flex items-center justify-center gap-2 transform hover:-translate-y-1 active:scale-95"
                   >
-                    <CheckCircle2 size={18} />
-                    Gunakan Mode Demo (Otomatis)
+                    <CheckCircle2 size={20} />
+                    GUNAKAN MODE DEMO (OTOMATIS)
                   </button>
                   
                   <div className="flex gap-3">
