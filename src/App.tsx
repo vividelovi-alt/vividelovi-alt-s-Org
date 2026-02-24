@@ -569,29 +569,24 @@ export default function App() {
   // --- Render Helpers ---
 
   const renderLanding = () => (
-    <div className="min-h-screen bg-modern flex flex-col items-center justify-start pt-0 p-4">
+    <div className="min-h-screen bg-modern flex flex-col items-center justify-start pt-12 p-4">
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-0 w-full max-w-3xl"
+        className="w-full max-w-2xl mb-8"
       >
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="mb-0"
-        >
-          <img 
-            src="https://raw.githubusercontent.com/vividelovi-alt/vividelovi-alt-s-Org/refs/heads/main/Logo%20PRESISI%20dengan%20target%20dan%20centang.png" 
-            alt="PRESISI"
-            className="w-full h-auto mx-auto drop-shadow-2xl"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-        </motion.div>
+        <img 
+          src="https://lh3.googleusercontent.com/d/1bogOVmwNoBbtXh1uTqC7ccDdTRYKw1fd" 
+          alt="PRESISI"
+          className="w-full h-auto drop-shadow-2xl mx-auto"
+          referrerPolicy="no-referrer"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl -mt-12 relative z-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl relative z-10">
         <motion.button
           whileHover={{ scale: 1.02, y: -4 }}
           whileTap={{ scale: 0.98 }}
@@ -728,9 +723,10 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img 
-              src="https://raw.githubusercontent.com/vividelovi-alt/vividelovi-alt-s-Org/refs/heads/main/Logo%20PRESISI%20dengan%20target%20dan%20centang.png" 
+              src="https://lh3.googleusercontent.com/d/1bogOVmwNoBbtXh1uTqC7ccDdTRYKw1fd" 
               alt="PRESISI"
               className="h-12 w-auto"
+              referrerPolicy="no-referrer"
             />
             {isDemoMode && (
               <div className="ml-4 flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
@@ -1481,9 +1477,10 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <img 
-              src="https://raw.githubusercontent.com/vividelovi-alt/vividelovi-alt-s-Org/refs/heads/main/Logo%20PRESISI%20dengan%20target%20dan%20centang.png" 
+              src="https://lh3.googleusercontent.com/d/1bogOVmwNoBbtXh1uTqC7ccDdTRYKw1fd" 
               alt="PRESISI"
               className="h-12 w-auto brightness-0 invert"
+              referrerPolicy="no-referrer"
             />
             <div className="border-l border-slate-700 pl-4">
               <h1 className="text-sm font-black tracking-widest text-emerald-400 uppercase">Admin Panel</h1>
