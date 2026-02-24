@@ -727,10 +727,11 @@ export default function App() {
       <nav className="bg-white/80 backdrop-blur-md border-b border-violet-100 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-400 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
-              <Target className="text-white w-7 h-7" />
-            </div>
-            <span className="text-2xl font-black text-slate-900 tracking-tight ml-1">PRESISI</span>
+            <img 
+              src="https://raw.githubusercontent.com/vividelovi-alt/vividelovi-alt-s-Org/refs/heads/main/Logo%20PRESISI%20dengan%20target%20dan%20centang.png" 
+              alt="PRESISI"
+              className="h-12 w-auto"
+            />
             {isDemoMode && (
               <div className="ml-4 flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
@@ -1479,12 +1480,14 @@ export default function App() {
       <div className="bg-slate-900 text-white py-6 px-4 shadow-lg sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center border border-slate-700">
-              <ShieldCheck className="text-emerald-400 w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="text-xl font-black tracking-tight">ADMIN PANEL</h1>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">{user?.name}</p>
+            <img 
+              src="https://raw.githubusercontent.com/vividelovi-alt/vividelovi-alt-s-Org/refs/heads/main/Logo%20PRESISI%20dengan%20target%20dan%20centang.png" 
+              alt="PRESISI"
+              className="h-12 w-auto brightness-0 invert"
+            />
+            <div className="border-l border-slate-700 pl-4">
+              <h1 className="text-sm font-black tracking-widest text-emerald-400 uppercase">Admin Panel</h1>
+              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{user?.name}</p>
             </div>
           </div>
           <button 
