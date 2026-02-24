@@ -227,6 +227,48 @@ app.get("/api/exams/:id/questions", asyncHandler(async (req, res) => {
   res.json(questions || []);
 }));
 
+app.put("/api/exams/:id", asyncHandler(async (req, res) => {
+  const { subject, class: targetClass, questions } = req.body;
+  
+  // Update exam details
+  const { error: examError } = await supabase
+    .from('exams')
+    .update({ subject, class: targetClass })
+    .eq('id', req.params.id);
+
+  if (examError) throw examError;
+
+  // Delete old questions and insert new ones (simplest way to update)
+  await supabase.from('questions').delete().eq('exam_id', req.params.id);
+
+  const questionsToInsert = questions.map((q: any) => ({
+    exam_id: parseInt(req.params.id),
+    type: q.type,
+    question_text: q.question_text,
+    option_a: q.option_a || null,
+    option_b: q.option_b || null,
+    option_c: q.option_c || null,
+    option_d: q.option_d || null,
+    correct_answer: q.correct_answer || null
+  }));
+
+  const { error: questionsError } = await supabase.from('questions').insert(questionsToInsert);
+  if (questionsError) throw questionsError;
+
+  res.json({ success: true });
+}));
+
+app.delete("/api/exams/:id", asyncHandler(async (req, res) => {
+  // Supabase should handle cascading deletes if configured, but let's be safe
+  await supabase.from('questions').delete().eq('exam_id', req.params.id);
+  await supabase.from('submissions').delete().eq('exam_id', req.params.id);
+  
+  const { error } = await supabase.from('exams').delete().eq('id', req.params.id);
+  if (error) throw error;
+  
+  res.json({ success: true });
+}));
+
 app.post("/api/submissions", asyncHandler(async (req, res) => {
   const { student_id, exam_id, answers } = req.body;
 

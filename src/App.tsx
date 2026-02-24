@@ -145,6 +145,9 @@ export default function App() {
   const [newExamSubject, setNewExamSubject] = useState('');
   const [newExamClass, setNewExamClass] = useState('');
   const [newQuestions, setNewQuestions] = useState<Partial<Question>[]>([]);
+  const [isEditingExam, setIsEditingExam] = useState(false);
+  const [editingExamId, setEditingExamId] = useState<number | null>(null);
+  const [availableClasses, setAvailableClasses] = useState<{id: number, name: string}[]>([]);
 
   // --- Mock Data for Demo Mode ---
   useEffect(() => {
@@ -304,9 +307,21 @@ export default function App() {
       } else {
         fetchExams();
         fetchSubmissions();
+        if (user.role === 'teacher') {
+          fetchClasses();
+        }
       }
     }
   }, [user, activeTab]);
+
+  const fetchClasses = async () => {
+    try {
+      const { data, ok } = await safeFetch('/api/admin/classes');
+      if (ok) setAvailableClasses(data || []);
+    } catch (err) {
+      console.error("Failed to fetch classes", err);
+    }
+  };
 
   const fetchAdminData = async () => {
     try {
@@ -586,6 +601,86 @@ export default function App() {
     reader.readAsBinaryString(file);
   };
 
+  const downloadExamTemplate = () => {
+    const templateData = [
+      { 
+        'Tipe': 'multiple_choice', 
+        'Pertanyaan': 'Berapakah 1 + 1?', 
+        'Pilihan A': '1', 
+        'Pilihan B': '2', 
+        'Pilihan C': '3', 
+        'Pilihan D': '4', 
+        'Jawaban Benar': 'B' 
+      },
+      { 
+        'Tipe': 'essay', 
+        'Pertanyaan': 'Jelaskan apa itu fotosintesis!', 
+        'Pilihan A': '', 
+        'Pilihan B': '', 
+        'Pilihan C': '', 
+        'Pilihan D': '', 
+        'Jawaban Benar': '' 
+      }
+    ];
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template Soal");
+    XLSX.writeFile(workbook, "Template_Soal_Ujian.xlsx");
+  };
+
+  const handleExamExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) {
+          showNotification("File kosong atau format tidak sesuai", "error");
+          setIsUploading(false);
+          return;
+        }
+
+        const questions = data.map((row: any) => ({
+          type: row['Tipe'] === 'essay' ? 'essay' : 'multiple_choice',
+          question_text: row['Pertanyaan'],
+          option_a: row['Pilihan A']?.toString() || '',
+          option_b: row['Pilihan B']?.toString() || '',
+          option_c: row['Pilihan C']?.toString() || '',
+          option_d: row['Pilihan D']?.toString() || '',
+          correct_answer: row['Jawaban Benar']?.toString() || ''
+        })).filter(q => q.question_text);
+
+        if (questions.length === 0) {
+          showNotification("Tidak ada pertanyaan valid ditemukan", "error");
+          setIsUploading(false);
+          return;
+        }
+
+        setNewQuestions([...newQuestions, ...questions]);
+        showNotification(`Berhasil mengimpor ${questions.length} soal!`);
+      } catch (err) {
+        console.error("Excel processing error", err);
+        showNotification("Gagal memproses file Excel", "error");
+      } finally {
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.onerror = () => {
+      showNotification("Gagal membaca file", "error");
+      setIsUploading(false);
+    };
+    reader.readAsBinaryString(file);
+  };
+
   const submitGrades = async () => {
     if (!activeSubmission) return;
     try {
@@ -713,12 +808,15 @@ export default function App() {
 
   const saveExam = async () => {
     if (!user || !newExamSubject || !newExamClass || newQuestions.length === 0) {
-      alert("Mohon lengkapi data ujian");
+      showNotification("Mohon lengkapi data ujian", "error");
       return;
     }
     try {
-      const { data, ok } = await safeFetch('/api/exams', {
-        method: 'POST',
+      const url = isEditingExam ? `/api/exams/${editingExamId}` : '/api/exams';
+      const method = isEditingExam ? 'PUT' : 'POST';
+      
+      const { data, ok } = await safeFetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           teacher_id: user.id,
@@ -727,16 +825,47 @@ export default function App() {
           questions: newQuestions
         })
       });
+
       if (ok && data?.success) {
-        alert("Ujian berhasil dibuat!");
+        showNotification(isEditingExam ? "Ujian berhasil diperbarui!" : "Ujian berhasil dibuat!");
         setView('dashboard');
+        fetchExams();
+        // Reset
         setNewExamSubject('');
         setNewExamClass('');
         setNewQuestions([]);
+        setIsEditingExam(false);
+        setEditingExamId(null);
+      }
+    } catch (err) {
+      showNotification("Gagal menyimpan ujian", "error");
+    }
+  };
+
+  const handleEditExam = async (exam: Exam) => {
+    try {
+      const { data: questions } = await safeFetch(`/api/exams/${exam.id}/questions`);
+      setNewExamSubject(exam.subject);
+      setNewExamClass(exam.class);
+      setNewQuestions(questions || []);
+      setIsEditingExam(true);
+      setEditingExamId(exam.id);
+      setView('create_exam');
+    } catch (err) {
+      showNotification("Gagal memuat data ujian", "error");
+    }
+  };
+
+  const handleDeleteExam = async (examId: number) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus ujian ini? Semua data nilai terkait juga akan dihapus.")) return;
+    try {
+      const { ok } = await safeFetch(`/api/exams/${examId}`, { method: 'DELETE' });
+      if (ok) {
+        showNotification("Ujian berhasil dihapus");
         fetchExams();
       }
     } catch (err) {
-      alert("Gagal membuat ujian");
+      showNotification("Gagal menghapus ujian", "error");
     }
   };
 
@@ -1051,8 +1180,24 @@ export default function App() {
                             Kerjakan <ChevronRight size={16} />
                           </button>
                         ) : (
-                          <div className="text-xs text-slate-400 italic">
-                            Dibuat pada {new Date(exam.created_at).toLocaleDateString('id-ID')}
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => handleEditExam(exam)}
+                              className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white rounded-xl transition-all"
+                              title="Edit Ujian"
+                            >
+                              <Edit3 size={18} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteExam(exam.id)}
+                              className="p-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-xl transition-all"
+                              title="Hapus Ujian"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                            <div className="text-xs text-slate-400 italic ml-2">
+                              {new Date(exam.created_at).toLocaleDateString('id-ID')}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1407,13 +1552,45 @@ export default function App() {
     <div className="min-h-screen bg-modern p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-3xl font-bold text-slate-900">Buat Ujian Baru</h2>
-          <button 
-            onClick={() => setView('dashboard')}
-            className="text-slate-500 hover:text-slate-700 font-bold"
-          >
-            Batal
-          </button>
+          <h2 className="text-3xl font-bold text-slate-900">{isEditingExam ? 'Edit Ujian' : 'Buat Ujian Baru'}</h2>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={downloadExamTemplate}
+              className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-emerald-100"
+              title="Download Template Soal"
+            >
+              <Download size={18} />
+              <span className="hidden sm:inline">Template Soal</span>
+            </button>
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-blue-100"
+              title="Upload Soal Excel"
+            >
+              <Upload size={18} />
+              <span className="hidden sm:inline">Upload Soal</span>
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept=".xlsx, .xls, .csv"
+              onChange={handleExamExcelUpload}
+            />
+            <button 
+              onClick={() => {
+                setView('dashboard');
+                setIsEditingExam(false);
+                setEditingExamId(null);
+                setNewExamSubject('');
+                setNewExamClass('');
+                setNewQuestions([]);
+              }}
+              className="text-slate-500 hover:text-slate-700 font-bold ml-4"
+            >
+              Batal
+            </button>
+          </div>
         </div>
 
         <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm mb-8">
@@ -1430,13 +1607,16 @@ export default function App() {
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">Kelas</label>
-              <input 
-                type="text" 
+              <select 
                 value={newExamClass}
                 onChange={(e) => setNewExamClass(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
-                placeholder="Contoh: 10-A"
-              />
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+              >
+                <option value="">Pilih Kelas</option>
+                {availableClasses.map(c => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -1537,7 +1717,7 @@ export default function App() {
             onClick={saveExam}
             className="bg-emerald-600 hover:bg-emerald-700 text-white px-12 py-4 rounded-2xl font-bold shadow-xl shadow-emerald-100 transition-all active:scale-95"
           >
-            Simpan & Publikasikan Ujian
+            {isEditingExam ? 'Simpan Perubahan' : 'Simpan & Publikasikan Ujian'}
           </button>
         </div>
       </div>
