@@ -754,6 +754,11 @@ export default function App() {
         showNotification("Password berhasil diubah!");
         setIsChangePasswordOpen(false);
         setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
+        if (isDemoMode && user) {
+          const updatedUser = { ...user, password: passwordData.newPassword };
+          setUser(updatedUser);
+          localStorage.setItem('edu_smart_user', JSON.stringify(updatedUser));
+        }
       } else {
         showNotification(data?.message || "Gagal mengubah password", "error");
       }
@@ -787,19 +792,7 @@ export default function App() {
     // For admin, force identifier to 'admin'
     const loginIdentifier = role === 'admin' ? 'admin' : identifier;
     
-    // Hardcoded Admin Bypass
-    if (role === 'admin' && loginIdentifier === 'admin' && password === 'admin123') {
-      const mockAdmin = {
-        id: 0,
-        role: 'admin',
-        identifier: 'admin',
-        name: 'Administrator'
-      };
-      setUser(mockAdmin);
-      setView('admin');
-      setActiveTab('admin_classes');
-      return;
-    }
+
 
     if (!loginIdentifier && role !== 'admin') {
       setError('Identifier harus diisi');

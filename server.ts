@@ -164,10 +164,10 @@ app.post("/api/login", asyncHandler(async (req, res) => {
   }
 }));
 
-app.post("/api/change-password", asyncHandler(async (req, res) => {
-  const { userId, currentPassword, newPassword } = req.body;
+app.post("/api/user/change-password", asyncHandler(async (req, res) => {
+  const { userId, oldPassword, newPassword } = req.body;
 
-  if (!userId || !currentPassword || !newPassword) {
+  if (!userId || !oldPassword || !newPassword) {
     return res.status(400).json({ success: false, message: "Missing required fields" });
   }
 
@@ -176,7 +176,7 @@ app.post("/api/change-password", asyncHandler(async (req, res) => {
     .from('users')
     .select('id, password')
     .eq('id', userId)
-    .eq('password', currentPassword)
+    .eq('password', oldPassword)
     .single();
 
   if (userError || !user) {
