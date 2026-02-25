@@ -970,7 +970,7 @@ export default function App() {
             className="bg-white rounded-3xl p-8 w-full max-w-md shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-2xl font-bold text-slate-900 mb-6">Ubah Password</h3>
+            <h3 className="text-2xl font-bold text-slate-900 mb-6">Rubah Password</h3>
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">Password Lama</label>
@@ -1176,7 +1176,7 @@ export default function App() {
             <img 
               src="https://lh3.googleusercontent.com/d/1bogOVmwNoBbtXh1uTqC7ccDdTRYKw1fd" 
               alt="PRESISI"
-              className="h-22 w-auto"
+              className="h-20 w-auto"
               referrerPolicy="no-referrer"
             />
             {isDemoMode && (
@@ -1237,7 +1237,7 @@ export default function App() {
                     className="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200 px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
                   >
                     <Settings size={16} />
-                    Ubah Password
+                    Rubah Password
                   </button>
                 <div className="flex justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-sm">
                   <span className="text-slate-500 dark:text-slate-400">Status</span>
