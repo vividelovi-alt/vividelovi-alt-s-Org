@@ -133,6 +133,8 @@ export default function App() {
   const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [notification, setNotification] = useState<Notification | null>(null);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now();
@@ -201,6 +203,17 @@ export default function App() {
         setStorage('classes', classes);
         return { data: { success: true }, ok: true, status: 200 };
       }
+    }
+
+    if (url.includes('/api/user/change-password')) {
+      const users = getStorage('users');
+      const userIndex = users.findIndex((u: any) => u.id === body.userId && u.password === body.oldPassword);
+      if (userIndex > -1) {
+        users[userIndex].password = body.newPassword;
+        setStorage('users', users);
+        return { data: { success: true }, ok: true, status: 200 };
+      }
+      return { data: { success: false, message: 'Password lama salah' }, ok: false, status: 401 };
     }
 
     if (url.includes('/api/exams')) {
@@ -706,6 +719,37 @@ export default function App() {
     reader.readAsBinaryString(file);
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      showNotification("Password baru tidak cocok", "error");
+      return;
+    }
+    if (!user) return;
+
+    try {
+      const { data, ok } = await safeFetch('/api/user/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: user.id,
+          oldPassword: passwordData.oldPassword,
+          newPassword: passwordData.newPassword
+        })
+      });
+
+      if (ok && data?.success) {
+        showNotification("Password berhasil diubah!");
+        setIsChangePasswordOpen(false);
+        setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
+      } else {
+        showNotification(data?.message || "Gagal mengubah password", "error");
+      }
+    } catch (err) {
+      showNotification("Terjadi kesalahan koneksi", "error");
+    }
+  };
+
   const submitGrades = async () => {
     if (!activeSubmission) return;
     try {
@@ -897,6 +941,70 @@ export default function App() {
 
   // --- Render Helpers ---
 
+  const renderChangePasswordModal = () => (
+    <AnimatePresence>
+      {isChangePasswordOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setIsChangePasswordOpen(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, y: -20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: -20 }}
+            className="bg-white rounded-3xl p-8 w-full max-w-md shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-2xl font-bold text-slate-900 mb-6">Ubah Password</h3>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Password Lama</label>
+                <input 
+                  type="password"
+                  value={passwordData.oldPassword}
+                  onChange={(e) => setPasswordData({...passwordData, oldPassword: e.target.value})}
+                  className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Password Baru</label>
+                <input 
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                  className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Konfirmasi Password Baru</label>
+                <input 
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                  className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-4 pt-4">
+                <button type="button" onClick={() => setIsChangePasswordOpen(false)} className="px-6 py-2 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition-colors">
+                  Batal
+                </button>
+                <button type="submit" className="px-6 py-2 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-colors">
+                  Simpan
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   const renderLanding = () => (
     <div className="min-h-screen bg-modern flex flex-col items-center justify-start pt-12 p-4">
       <motion.div 
@@ -1045,7 +1153,9 @@ export default function App() {
     </div>
   );
 
-  const renderDashboard = () => (
+    const renderDashboard = () => (
+    <>
+      {renderChangePasswordModal()}
     <div className="min-h-screen bg-modern">
       {/* Navbar */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-violet-100 sticky top-0 z-10">
@@ -1104,6 +1214,13 @@ export default function App() {
               <p className="text-slate-500 text-sm mb-6">{user?.role === 'student' ? `NIS: ${user.identifier}` : `NIP: ${user.identifier}`}</p>
               
               <div className="w-full space-y-3">
+                  <button 
+                    onClick={() => setIsChangePasswordOpen(true)}
+                    className="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Settings size={16} />
+                    Ubah Password
+                  </button>
                 <div className="flex justify-between p-3 bg-slate-50 rounded-xl text-sm">
                   <span className="text-slate-500">Status</span>
                   <span className="font-bold text-violet-600 uppercase">{user?.role}</span>
@@ -1482,6 +1599,7 @@ export default function App() {
         </div>
       </main>
     </div>
+    </>
   );
 
   const renderExam = () => (
