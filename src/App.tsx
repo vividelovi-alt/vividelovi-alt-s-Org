@@ -148,6 +148,7 @@ export default function App() {
   const [isEditingExam, setIsEditingExam] = useState(false);
   const [editingExamId, setEditingExamId] = useState<number | null>(null);
   const [availableClasses, setAvailableClasses] = useState<{id: number, name: string}[]>([]);
+  const [selectedClassFilter, setSelectedClassFilter] = useState('');
 
   // --- Mock Data for Demo Mode ---
   useEffect(() => {
@@ -155,7 +156,10 @@ export default function App() {
       const mockUsers = [
         { id: 1, role: 'admin', identifier: 'admin', name: 'Administrator', password: 'admin', class: null, subject: null },
         { id: 2, role: 'teacher', identifier: 'guru1', name: 'Budi Santoso', password: 'guru', class: null, subject: 'Matematika' },
-        { id: 3, role: 'student', identifier: 'siswa1', name: 'Ani Wijaya', password: 'siswa', class: '10-A', subject: null }
+        { id: 3, role: 'student', identifier: 'siswa1', name: 'Ani Wijaya', password: 'siswa', class: '10-A', subject: null },
+        { id: 4, role: 'student', identifier: '654321', name: 'Budi Candra', password: 'siswa', class: '10-A', subject: null },
+        { id: 5, role: 'student', identifier: '54321', name: 'Charlie', password: 'siswa', class: '10-B', subject: null },
+        { id: 6, role: 'teacher', identifier: '98765', name: 'Diana', password: 'guru', class: null, subject: 'Fisika' }
       ];
       const mockClasses = [{ id: 1, name: '10-A' }, { id: 2, name: '10-B' }];
       
@@ -314,6 +318,12 @@ export default function App() {
     }
   }, [user, activeTab]);
 
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      fetchAdminData();
+    }
+  }, [user, selectedClassFilter]);
+
   const fetchClasses = async () => {
     try {
       const { data, ok } = await safeFetch('/api/admin/classes');
@@ -327,7 +337,7 @@ export default function App() {
     try {
       const [classesRes, studentsRes, teachersRes] = await Promise.all([
         safeFetch('/api/admin/classes'),
-        safeFetch('/api/admin/students'),
+        safeFetch(`/api/admin/students${selectedClassFilter ? `?class=${selectedClassFilter}` : ''}`),
         safeFetch('/api/admin/teachers')
       ]);
       if (classesRes.ok) setAdminClasses(classesRes.data);
@@ -337,6 +347,12 @@ export default function App() {
       console.error("Failed to fetch admin data", err);
     }
   };
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      fetchAdminData();
+    }
+  }, [user, selectedClassFilter]);
 
   const fetchExams = async () => {
     if (!user) return;
@@ -387,10 +403,15 @@ export default function App() {
         }));
         setActiveSubmission({ ...data, answers: mappedAnswers });
         
-        // Initialize grading scores from existing scores
+        // Initialize grading scores with automatic calculation for multiple choice
+        const pointPerQuestion = 100 / mappedAnswers.length;
         const initialScores: Record<number, number> = {};
         mappedAnswers.forEach((ans: any) => {
-          initialScores[ans.answer_id] = ans.score;
+          if (ans.type === 'multiple_choice') {
+            initialScores[ans.answer_id] = ans.answer_text === ans.correct_answer ? pointPerQuestion : 0;
+          } else {
+            initialScores[ans.answer_id] = ans.score; // Keep existing score for essays
+          }
         });
         setGradingScores(initialScores);
         setView('grade_submission');
@@ -1724,7 +1745,11 @@ export default function App() {
     </div>
   );
 
-  const renderGradeSubmission = () => (
+  const renderGradeSubmission = () => {
+    const pointPerQuestion = activeSubmission ? (100 / activeSubmission.answers.length) : 0;
+    const totalScore = (Object.values(gradingScores) as number[]).reduce((a, b) => (a ?? 0) + (b ?? 0), 0);
+
+    return (
     <div className="min-h-screen bg-modern p-6">
       <div className="max-w-3xl mx-auto">
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 mb-8 flex items-center justify-between">
@@ -1782,14 +1807,19 @@ export default function App() {
                     <input 
                       type="number" 
                       min="0" 
-                      max="10"
+                      max={pointPerQuestion}
                       step="0.5"
                       disabled={ans.type === 'multiple_choice' || user?.role === 'student'}
                       value={gradingScores[ans.answer_id] || 0}
-                      onChange={(e) => setGradingScores({ ...gradingScores, [ans.answer_id]: parseFloat(e.target.value) })}
+                      onChange={(e) => {
+                        const newScore = parseFloat(e.target.value);
+                        if (newScore <= pointPerQuestion) {
+                          setGradingScores({ ...gradingScores, [ans.answer_id]: newScore });
+                        }
+                      }}
                       className={`w-20 px-3 py-2 rounded-xl border outline-none transition-all font-bold text-center ${ans.type === 'multiple_choice' || user?.role === 'student' ? 'bg-slate-100 border-slate-200 text-slate-500' : 'bg-white border-indigo-200 focus:ring-2 focus:ring-indigo-500 text-indigo-600'}`}
                     />
-                    <span className="text-xs text-slate-400 font-medium">/ 10.0</span>
+                    <span className="text-xs text-slate-400 font-medium">/ {pointPerQuestion.toFixed(1)}</span>
                   </div>
                   
                   {ans.type === 'multiple_choice' && (
@@ -1804,11 +1834,18 @@ export default function App() {
         </div>
 
         <div className="mt-12 flex items-center justify-between bg-white p-6 rounded-3xl border border-slate-200 shadow-lg sticky bottom-6">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Skor {user?.role === 'teacher' ? 'Sementara' : 'Akhir'}</span>
-            <span className="text-3xl font-black text-indigo-600">
-              {(Object.values(gradingScores) as number[]).reduce((a, b) => (a ?? 0) + (b ?? 0), 0).toFixed(1)}
-            </span>
+          <div className="flex items-end gap-4">
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Skor {user?.role === 'teacher' ? 'Sementara' : 'Akhir'}</span>
+              <span className="text-3xl font-black text-indigo-600">
+                {totalScore.toFixed(1)}
+              </span>
+            </div>
+            <div className="pb-1">
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-sm font-bold border border-emerald-100">
+                {totalScore.toFixed(1)}%
+              </span>
+            </div>
           </div>
           {user?.role === 'teacher' && (
             <button 
@@ -1822,7 +1859,8 @@ export default function App() {
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   const renderAdminDashboard = () => (
     <div className="min-h-screen bg-modern">
@@ -1888,7 +1926,17 @@ export default function App() {
               </h3>
               <div className="flex items-center gap-2">
                 {activeTab === 'admin_students' && (
-                  <>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedClassFilter}
+                      onChange={(e) => setSelectedClassFilter(e.target.value)}
+                      className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-bold outline-none"
+                    >
+                      <option value="">Semua Kelas</option>
+                      {adminClasses.map(c => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
                     <button 
                       onClick={downloadStudentTemplate}
                       className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-emerald-100"
@@ -1913,7 +1961,7 @@ export default function App() {
                       accept=".xlsx, .xls, .csv"
                       onChange={handleStudentExcelUpload}
                     />
-                  </>
+                  </div>
                 )}
                 {activeTab === 'admin_teachers' && (
                   <>

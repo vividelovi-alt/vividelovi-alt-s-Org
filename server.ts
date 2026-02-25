@@ -164,6 +164,38 @@ app.post("/api/login", asyncHandler(async (req, res) => {
   }
 }));
 
+app.post("/api/change-password", asyncHandler(async (req, res) => {
+  const { userId, currentPassword, newPassword } = req.body;
+
+  if (!userId || !currentPassword || !newPassword) {
+    return res.status(400).json({ success: false, message: "Missing required fields" });
+  }
+
+  // Verify current password
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('id, password')
+    .eq('id', userId)
+    .eq('password', currentPassword)
+    .single();
+
+  if (userError || !user) {
+    return res.status(401).json({ success: false, message: "Current password incorrect or user not found" });
+  }
+
+  // Update password
+  const { error: updateError } = await supabase
+    .from('users')
+    .update({ password: newPassword })
+    .eq('id', userId);
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  res.json({ success: true, message: "Password updated successfully" });
+}));
+
 app.get("/api/exams", asyncHandler(async (req, res) => {
   const { role, userId, studentClass } = req.query;
   
@@ -270,23 +302,36 @@ app.delete("/api/exams/:id", asyncHandler(async (req, res) => {
 }));
 
 app.post("/api/submissions", asyncHandler(async (req, res) => {
-  const { student_id, exam_id, answers } = req.body;
+  const { student_id, exam_id, answers: studentAnswers } = req.body;
 
-  const { data: questions } = await supabase.from('questions').select('id, type, correct_answer').eq('exam_id', exam_id);
-  if (!questions) throw new Error("Questions not found");
+  // Fetch all questions for the exam to get correct answers and total count
+  const { data: questions, error: questionsError } = await supabase
+    .from('questions')
+    .select('*')
+    .eq('exam_id', exam_id);
 
+  if (questionsError) throw questionsError;
+  if (!questions || questions.length === 0) {
+    return res.status(400).json({ success: false, message: "No questions found for this exam." });
+  }
+
+  const scorePerQuestion = 100 / questions.length;
   let totalScore = 0;
-  const processedAnswers = [];
+  const processedAnswers: { question_id: number; answer_text: string; score: number | null }[] = [];
 
   for (const q of questions) {
-    const studentAnswer = answers[q.id];
-    let score = 0;
+    const studentAnswer = studentAnswers[q.id] || '';
+    let score: number | null = null;
+
     if (q.type === 'multiple_choice') {
       if (studentAnswer === q.correct_answer) {
-        score = 10;
+        score = scorePerQuestion;
+        totalScore += scorePerQuestion;
       }
+    } else {
+      // For essay questions, score is initially null, to be graded by teacher
+      score = null;
     }
-    totalScore += score;
     processedAnswers.push({ question_id: q.id, answer_text: studentAnswer, score });
   }
 
@@ -473,7 +518,12 @@ app.delete("/api/admin/classes/:id", asyncHandler(async (req, res) => {
 }));
 
 app.get("/api/admin/students", asyncHandler(async (req, res) => {
-  const { data: students } = await supabase.from('users').select('*').eq('role', 'student').order('class', { ascending: true }).order('name', { ascending: true });
+  const { class: studentClass } = req.query;
+  let query = supabase.from('users').select('*').eq('role', 'student').order('class', { ascending: true }).order('name', { ascending: true });
+  if (studentClass) {
+    query = query.eq('class', studentClass);
+  }
+  const { data: students } = await query;
   res.json(students || []);
 }));
 
