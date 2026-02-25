@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Sun, Moon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
   User, 
@@ -135,6 +136,7 @@ export default function App() {
   const [notification, setNotification] = useState<Notification | null>(null);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now();
@@ -317,6 +319,16 @@ export default function App() {
     const interval = setInterval(checkDb, 30000); // Check every 30s
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [theme]);
 
   useEffect(() => {
     if (user) {
@@ -1006,63 +1018,63 @@ export default function App() {
   );
 
   const renderLanding = () => (
-    <div className="min-h-screen bg-modern flex flex-col items-center justify-start pt-12 p-4">
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
+    <div className="min-h-screen bg-modern flex flex-col items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-2xl mb-8"
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-3xl bg-white/70 dark:bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 sm:p-12 shadow-2xl shadow-slate-900/10 flex flex-col items-center"
       >
         <img 
           src="https://lh3.googleusercontent.com/d/1bogOVmwNoBbtXh1uTqC7ccDdTRYKw1fd" 
           alt="PRESISI"
-          className="w-full h-auto drop-shadow-2xl mx-auto"
+          className="w-full max-w-md h-auto mb-10"
           referrerPolicy="no-referrer"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-          }}
         />
+
+        <div 
+          className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl"
+        >
+          <motion.button
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => { setRole('student'); setView('login'); }}
+            className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center group hover:border-violet-400 hover:shadow-xl hover:shadow-violet-100 transition-all duration-300"
+          >
+            <div className="w-20 h-20 bg-violet-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-violet-600 transition-all duration-300">
+              <GraduationCap className="w-10 h-10 text-violet-600 group-hover:text-white transition-colors" />
+            </div>
+            <span className="text-2xl font-bold text-slate-800">SISWA</span>
+            <p className="text-slate-500 mt-2 text-sm">Masuk sebagai peserta ujian</p>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => { setRole('teacher'); setView('login'); }}
+            className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center group hover:border-fuchsia-400 hover:shadow-xl hover:shadow-fuchsia-100 transition-all duration-300"
+          >
+            <div className="w-20 h-20 bg-fuchsia-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-fuchsia-600 transition-all duration-300">
+              <User className="w-10 h-10 text-fuchsia-600 group-hover:text-white transition-colors" />
+            </div>
+            <span className="text-2xl font-bold text-slate-800">GURU</span>
+            <p className="text-slate-500 mt-2 text-sm">Masuk sebagai pengajar</p>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => { setRole('admin'); setView('login'); }}
+            className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center group hover:border-amber-400 hover:shadow-xl hover:shadow-amber-100 transition-all duration-300 md:col-span-2"
+          >
+            <div className="w-20 h-20 bg-amber-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-amber-500 transition-all duration-300">
+              <UserCircle className="w-10 h-10 text-amber-600 group-hover:text-white transition-colors" />
+            </div>
+            <span className="text-2xl font-bold text-slate-800">ADMIN</span>
+            <p className="text-slate-500 mt-2 text-sm">Masuk sebagai administrator</p>
+          </motion.button>
+        </div>
       </motion.div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl relative z-10">
-        <motion.button
-          whileHover={{ scale: 1.02, y: -4 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => { setRole('student'); setView('login'); }}
-          className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center group hover:border-violet-400 hover:shadow-xl hover:shadow-violet-100 transition-all duration-300"
-        >
-          <div className="w-20 h-20 bg-violet-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-violet-600 transition-all duration-300">
-            <GraduationCap className="w-10 h-10 text-violet-600 group-hover:text-white transition-colors" />
-          </div>
-          <span className="text-2xl font-bold text-slate-800">SISWA</span>
-          <p className="text-slate-500 mt-2 text-sm">Masuk sebagai peserta ujian</p>
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.02, y: -4 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => { setRole('teacher'); setView('login'); }}
-          className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center group hover:border-fuchsia-400 hover:shadow-xl hover:shadow-fuchsia-100 transition-all duration-300"
-        >
-          <div className="w-20 h-20 bg-fuchsia-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-fuchsia-600 transition-all duration-300">
-            <User className="w-10 h-10 text-fuchsia-600 group-hover:text-white transition-colors" />
-          </div>
-          <span className="text-2xl font-bold text-slate-800">GURU</span>
-          <p className="text-slate-500 mt-2 text-sm">Masuk sebagai pengajar</p>
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.02, y: -4 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => { setRole('admin'); setView('login'); }}
-          className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center group hover:border-amber-400 hover:shadow-xl hover:shadow-amber-100 transition-all duration-300 md:col-span-2"
-        >
-          <div className="w-20 h-20 bg-amber-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-amber-500 transition-all duration-300">
-            <UserCircle className="w-10 h-10 text-amber-600 group-hover:text-white transition-colors" />
-          </div>
-          <span className="text-2xl font-bold text-slate-800">ADMIN</span>
-          <p className="text-slate-500 mt-2 text-sm">Masuk sebagai administrator</p>
-        </motion.button>
-      </div>
     </div>
   );
 
@@ -1164,7 +1176,7 @@ export default function App() {
             <img 
               src="https://lh3.googleusercontent.com/d/1bogOVmwNoBbtXh1uTqC7ccDdTRYKw1fd" 
               alt="PRESISI"
-              className="h-12 w-auto"
+              className="h-22 w-auto"
               referrerPolicy="no-referrer"
             />
             {isDemoMode && (
@@ -1184,9 +1196,15 @@ export default function App() {
             )}
           </div>
           <div className="flex items-center gap-4">
+                        <button 
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              className="p-2 text-slate-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:text-yellow-400 dark:hover:bg-yellow-900/50 rounded-xl transition-all"
+            >
+              {theme === 'light' ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
             <div className="hidden md:block text-right">
-              <p className="text-sm font-bold text-slate-900">{user?.name}</p>
-              <p className="text-xs text-slate-500 uppercase tracking-wider">{user?.role === 'student' ? `Kelas ${user.class}` : 'Pengajar'}</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-200">{user?.name}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">{user?.role === 'student' ? `Kelas ${user.class}` : 'Pengajar'}</p>
             </div>
             <button 
               onClick={handleLogout}
@@ -1204,36 +1222,37 @@ export default function App() {
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200"
+            className="bg-white dark:bg-slate-800/50 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800"
           >
             <div className="flex flex-col items-center text-center">
-              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4 border-4 border-white shadow-inner">
-                <UserCircle className="w-16 h-16 text-slate-300" />
+              <div className="w-24 h-24 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4 border-4 border-white dark:border-slate-800 shadow-inner">
+                <UserCircle className="w-16 h-16 text-slate-300 dark:text-slate-500" />
               </div>
-              <h3 className="text-xl font-bold text-slate-900">{user?.name}</h3>
-              <p className="text-slate-500 text-sm mb-6">{user?.role === 'student' ? `NIS: ${user.identifier}` : `NIP: ${user.identifier}`}</p>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">{user?.name}</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">{user?.role === 'student' ? `NIS: ${user.identifier}` : `NIP: ${user.identifier}`}</p>
               
               <div className="w-full space-y-3">
                   <button 
                     onClick={() => setIsChangePasswordOpen(true)}
-                    className="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
+                    className="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200 px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
                   >
                     <Settings size={16} />
                     Ubah Password
                   </button>
-                <div className="flex justify-between p-3 bg-slate-50 rounded-xl text-sm">
-                  <span className="text-slate-500">Status</span>
-                  <span className="font-bold text-violet-600 uppercase">{user?.role}</span>
+                <div className="flex justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-sm">
+                  <span className="text-slate-500 dark:text-slate-400">Status</span>
+                  <span className="font-bold text-violet-600 dark:text-violet-400 uppercase">{user?.role}</span>
                 </div>
                 {user?.role === 'student' && (
-                  <div className="flex justify-between p-3 bg-slate-50 rounded-xl text-sm">
-                    <span className="text-slate-500">Kelas</span>
-                    <span className="font-bold text-slate-900">{user.class}</span>
+                  <div className="flex justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-sm">
+                    <span className="text-slate-500 dark:text-slate-400">Kelas</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{user.class}</span>
                   </div>
                 )}
               </div>
             </div>
           </motion.div>
+
 
           {user?.role === 'teacher' && (
             <motion.button
@@ -1252,17 +1271,18 @@ export default function App() {
         {/* Main Content Area */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex bg-white p-1 rounded-2xl border border-violet-100 shadow-sm">
+            <div className="flex bg-white dark:bg-slate-800/50 p-1 rounded-2xl border border-violet-100 dark:border-slate-800 shadow-sm">
+            
               <button 
                 onClick={() => { setActiveTab('exams'); setSelectedExamId(null); }}
-                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'exams' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'exams' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`} 
               >
                 <ClipboardList size={18} />
                 Daftar Ujian
               </button>
               <button 
                 onClick={() => { setActiveTab('grades'); setSelectedExamId(null); }}
-                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'grades' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'grades' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`} 
               >
                 <Award size={18} />
                 Nilai Ujian
@@ -1270,7 +1290,7 @@ export default function App() {
               {user?.role === 'teacher' && (
                 <button 
                   onClick={() => { setActiveTab('analysis'); setSelectedExamId(null); setAnalysisData(null); }}
-                  className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'analysis' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 hover:bg-slate-50'}`}
+                  className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'analysis' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`} 
                 >
                   <BarChart3 size={18} />
                   Analisis Soal
