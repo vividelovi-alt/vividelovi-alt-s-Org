@@ -68,6 +68,7 @@ interface Question {
   option_b?: string;
   option_c?: string;
   option_d?: string;
+  option_e?: string;
   correct_answer?: string;
 }
 
@@ -631,6 +632,7 @@ export default function App() {
         'Pilihan B': '2', 
         'Pilihan C': '3', 
         'Pilihan D': '4', 
+        'Pilihan E': '5', 
         'Jawaban Benar': 'B' 
       },
       { 
@@ -640,6 +642,7 @@ export default function App() {
         'Pilihan B': '', 
         'Pilihan C': '', 
         'Pilihan D': '', 
+        'Pilihan E': '', 
         'Jawaban Benar': '' 
       }
     ];
@@ -676,6 +679,7 @@ export default function App() {
           option_b: row['Pilihan B']?.toString() || '',
           option_c: row['Pilihan C']?.toString() || '',
           option_d: row['Pilihan D']?.toString() || '',
+          option_e: row['Pilihan E']?.toString() || '',
           correct_answer: row['Jawaban Benar']?.toString() || ''
         })).filter(q => q.question_text);
 
@@ -823,6 +827,7 @@ export default function App() {
       option_b: '', 
       option_c: '', 
       option_d: '', 
+      option_e: '', 
       correct_answer: 'A' 
     }]);
   };
@@ -1511,7 +1516,8 @@ export default function App() {
 
               {q.type === 'multiple_choice' ? (
                 <div className="grid grid-cols-1 gap-3 ml-14">
-                  {['A', 'B', 'C', 'D'].map((opt) => (
+                  {['A', 'B', 'C', 'D', 'E'].map((opt) => (
+                    (q as any)[`option_${opt.toLowerCase()}`] && (
                     <button
                       key={opt}
                       onClick={() => setStudentAnswers({ ...studentAnswers, [q.id]: opt })}
@@ -1528,7 +1534,8 @@ export default function App() {
                       </span>
                       <span>{(q as any)[`option_${opt.toLowerCase()}`]}</span>
                     </button>
-                  ))}
+                  )))
+                }
                 </div>
               ) : (
                 <div className="ml-14">
@@ -1676,7 +1683,7 @@ export default function App() {
 
                 {q.type === 'multiple_choice' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {['A', 'B', 'C', 'D'].map((opt) => (
+                    {['A', 'B', 'C', 'D', 'E'].map((opt) => (
                       <div key={opt} className="flex items-center gap-3">
                         <span className="font-bold text-slate-400">{opt}</span>
                         <input 
@@ -1707,6 +1714,7 @@ export default function App() {
                         <option value="B">B</option>
                         <option value="C">C</option>
                         <option value="D">D</option>
+                        <option value="E">E</option>
                       </select>
                     </div>
                   </div>
