@@ -36,6 +36,7 @@ import {
   Target,
   Download,
   Upload,
+  Save,
   X,
   AlertCircle
 } from 'lucide-react';
@@ -104,7 +105,7 @@ export default function App() {
   const [role, setRole] = useState<Role>(null);
   const [user, setUser] = useState<UserData | null>(null);
   const [view, setView] = useState<'landing' | 'login' | 'dashboard' | 'exam' | 'create_exam' | 'grade_submission' | 'admin'>('landing');
-  const [activeTab, setActiveTab] = useState<'exams' | 'grades' | 'analysis' | 'admin_classes' | 'admin_students' | 'admin_teachers'>('exams');
+  const [activeTab, setActiveTab] = useState<'exams' | 'grades' | 'analysis' | 'admin_classes' | 'admin_students' | 'admin_teachers' | 'admin_settings'>('exams');
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
   const [analysisData, setAnalysisData] = useState<{
     exam: any;
@@ -120,6 +121,14 @@ export default function App() {
   const [adminClasses, setAdminClasses] = useState<{id: number, name: string}[]>([]);
   const [adminStudents, setAdminStudents] = useState<UserData[]>([]);
   const [adminTeachers, setAdminTeachers] = useState<UserData[]>([]);
+  const [adminSettings, setAdminSettings] = useState({
+    school_name: '',
+    academic_year: '',
+    principal_name: '',
+    principal_nip: '',
+    city: ''
+  });
+  const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -253,6 +262,14 @@ export default function App() {
         setStorage('questions', questions);
         
         return { data: { success: true, examId: newExam.id }, ok: true, status: 200 };
+      }
+    }
+
+    if (url.includes('/api/admin/settings')) {
+      if (method === 'GET') return { data: getStorage('settings') || {}, ok: true, status: 200 };
+      if (method === 'POST') {
+        setStorage('settings', body);
+        return { data: { success: true }, ok: true, status: 200 };
       }
     }
 
@@ -404,14 +421,16 @@ export default function App() {
 
   const fetchAdminData = async () => {
     try {
-      const [classesRes, studentsRes, teachersRes] = await Promise.all([
+      const [classesRes, studentsRes, teachersRes, settingsRes] = await Promise.all([
         safeFetch('/api/admin/classes'),
         safeFetch(`/api/admin/students${selectedClassFilter ? `?class=${selectedClassFilter}` : ''}`),
-        safeFetch('/api/admin/teachers')
+        safeFetch('/api/admin/teachers'),
+        safeFetch('/api/admin/settings')
       ]);
       if (classesRes.ok) setAdminClasses(classesRes.data);
       if (studentsRes.ok) setAdminStudents(studentsRes.data);
       if (teachersRes.ok) setAdminTeachers(teachersRes.data);
+      if (settingsRes.ok) setAdminSettings(settingsRes.data || {});
     } catch (err) {
       console.error("Failed to fetch admin data", err);
     }
@@ -861,6 +880,23 @@ export default function App() {
       }
     } catch (err) {
       setError("Terjadi kesalahan koneksi");
+    }
+  };
+
+  const saveSettings = async () => {
+    try {
+      const { ok } = await safeFetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(adminSettings)
+      });
+      if (ok) {
+        showNotification("Pengaturan berhasil disimpan!");
+      } else {
+        showNotification("Gagal menyimpan pengaturan", "error");
+      }
+    } catch (err) {
+      showNotification("Terjadi kesalahan koneksi", "error");
     }
   };
 
@@ -2200,6 +2236,13 @@ export default function App() {
               <GraduationCap size={20} />
               Daftar Guru
             </button>
+            <button 
+              onClick={() => setActiveTab('admin_settings')}
+              className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-sm font-bold transition-all ${activeTab === 'admin_settings' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              <Settings size={20} />
+              Pengaturan
+            </button>
           </div>
         </div>
 
@@ -2208,87 +2251,212 @@ export default function App() {
           <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6 border-bottom border-slate-100 flex items-center justify-between bg-slate-50/50">
               <h3 className="text-lg font-bold text-slate-900">
-                {activeTab === 'admin_classes' ? 'Manajemen Kelas' : activeTab === 'admin_students' ? 'Manajemen Siswa' : 'Manajemen Guru'}
+                {activeTab === 'admin_classes' ? 'Manajemen Kelas' : activeTab === 'admin_students' ? 'Manajemen Siswa' : activeTab === 'admin_teachers' ? 'Manajemen Guru' : 'Pengaturan Aplikasi'}
               </h3>
               <div className="flex items-center gap-2">
-                {activeTab === 'admin_students' && (
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={selectedClassFilter}
-                      onChange={(e) => setSelectedClassFilter(e.target.value)}
-                      className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-bold outline-none"
-                    >
-                      <option value="">Semua Kelas</option>
-                      {adminClasses.map(c => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
-                      ))}
-                    </select>
+                {activeTab === 'admin_settings' ? (
+                  isEditingSettings ? (
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setIsEditingSettings(false)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-6 py-2 rounded-xl text-sm font-bold transition-all"
+                      >
+                        Batal
+                      </button>
+                      <button 
+                        onClick={async () => {
+                          await saveSettings();
+                          setIsEditingSettings(false);
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-md"
+                      >
+                        <Save size={18} />
+                        Simpan Perubahan
+                      </button>
+                    </div>
+                  ) : (
                     <button 
-                      onClick={downloadStudentTemplate}
-                      className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-emerald-100"
-                      title="Download Template Excel"
+                      onClick={() => setIsEditingSettings(true)}
+                      className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-md"
                     >
-                      <Download size={18} />
-                      <span className="hidden sm:inline">Template</span>
+                      <Edit3 size={18} />
+                      Edit Pengaturan
                     </button>
-                    <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                      className={`bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-blue-100 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      title="Upload Data Excel"
-                    >
-                      {isUploading ? <RefreshCw size={18} className="animate-spin" /> : <Upload size={18} />}
-                      <span className="hidden sm:inline">{isUploading ? 'Memproses...' : 'Upload Excel'}</span>
-                    </button>
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      accept=".xlsx, .xls, .csv"
-                      onChange={handleStudentExcelUpload}
-                    />
-                  </div>
-                )}
-                {activeTab === 'admin_teachers' && (
+                  )
+                ) : (
                   <>
+                    {activeTab === 'admin_students' && (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={selectedClassFilter}
+                          onChange={(e) => setSelectedClassFilter(e.target.value)}
+                          className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-bold outline-none"
+                        >
+                          <option value="">Semua Kelas</option>
+                          {adminClasses.map(c => (
+                            <option key={c.id} value={c.name}>{c.name}</option>
+                          ))}
+                        </select>
+                        <button 
+                          onClick={downloadStudentTemplate}
+                          className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-emerald-100"
+                          title="Download Template Excel"
+                        >
+                          <Download size={18} />
+                          <span className="hidden sm:inline">Template</span>
+                        </button>
+                        <button 
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploading}
+                          className={`bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-blue-100 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title="Upload Data Excel"
+                        >
+                          {isUploading ? <RefreshCw size={18} className="animate-spin" /> : <Upload size={18} />}
+                          <span className="hidden sm:inline">{isUploading ? 'Memproses...' : 'Upload Excel'}</span>
+                        </button>
+                        <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          className="hidden" 
+                          accept=".xlsx, .xls, .csv"
+                          onChange={handleStudentExcelUpload}
+                        />
+                      </div>
+                    )}
+                    {activeTab === 'admin_teachers' && (
+                      <>
+                        <button 
+                          onClick={downloadTeacherTemplate}
+                          className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-emerald-100"
+                          title="Download Template Excel"
+                        >
+                          <Download size={18} />
+                          <span className="hidden sm:inline">Template</span>
+                        </button>
+                        <button 
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploading}
+                          className={`bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-blue-100 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title="Upload Data Excel"
+                        >
+                          {isUploading ? <RefreshCw size={18} className="animate-spin" /> : <Upload size={18} />}
+                          <span className="hidden sm:inline">{isUploading ? 'Memproses...' : 'Upload Excel'}</span>
+                        </button>
+                        <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          className="hidden" 
+                          accept=".xlsx, .xls, .csv"
+                          onChange={handleTeacherExcelUpload}
+                        />
+                      </>
+                    )}
                     <button 
-                      onClick={downloadTeacherTemplate}
-                      className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-emerald-100"
-                      title="Download Template Excel"
+                      onClick={() => handleAdminAction('add', activeTab === 'admin_classes' ? 'class' : activeTab === 'admin_students' ? 'student' : 'teacher')}
+                      className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-md"
                     >
-                      <Download size={18} />
-                      <span className="hidden sm:inline">Template</span>
+                      <Plus size={18} />
+                      Tambah Data
                     </button>
-                    <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                      className={`bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-blue-100 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      title="Upload Data Excel"
-                    >
-                      {isUploading ? <RefreshCw size={18} className="animate-spin" /> : <Upload size={18} />}
-                      <span className="hidden sm:inline">{isUploading ? 'Memproses...' : 'Upload Excel'}</span>
-                    </button>
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      accept=".xlsx, .xls, .csv"
-                      onChange={handleTeacherExcelUpload}
-                    />
                   </>
                 )}
-                <button 
-                  onClick={() => handleAdminAction('add', activeTab === 'admin_classes' ? 'class' : activeTab === 'admin_students' ? 'student' : 'teacher')}
-                  className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-md"
-                >
-                  <Plus size={18} />
-                  Tambah Data
-                </button>
               </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              {activeTab === 'admin_settings' ? (
+                <div className="p-8 max-w-2xl space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nama Sekolah</label>
+                      {isEditingSettings ? (
+                        <input 
+                          type="text"
+                          value={adminSettings.school_name}
+                          onChange={e => setAdminSettings({...adminSettings, school_name: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all font-bold text-slate-700"
+                          placeholder="Masukkan Nama Sekolah"
+                        />
+                      ) : (
+                        <div className="px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-700">
+                          {adminSettings.school_name || '-'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tahun Pelajaran</label>
+                      {isEditingSettings ? (
+                        <input 
+                          type="text"
+                          value={adminSettings.academic_year}
+                          onChange={e => setAdminSettings({...adminSettings, academic_year: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all font-bold text-slate-700"
+                          placeholder="Contoh: 2023/2024"
+                        />
+                      ) : (
+                        <div className="px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-700">
+                          {adminSettings.academic_year || '-'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Kepala Sekolah</label>
+                      {isEditingSettings ? (
+                        <input 
+                          type="text"
+                          value={adminSettings.principal_name}
+                          onChange={e => setAdminSettings({...adminSettings, principal_name: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all font-bold text-slate-700"
+                          placeholder="Nama Kepala Sekolah"
+                        />
+                      ) : (
+                        <div className="px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-700">
+                          {adminSettings.principal_name || '-'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">NIP Kepala Sekolah</label>
+                      {isEditingSettings ? (
+                        <input 
+                          type="text"
+                          value={adminSettings.principal_nip}
+                          onChange={e => setAdminSettings({...adminSettings, principal_nip: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all font-bold text-slate-700"
+                          placeholder="NIP Kepala Sekolah"
+                        />
+                      ) : (
+                        <div className="px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-700">
+                          {adminSettings.principal_nip || '-'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Kota / Kabupaten</label>
+                      {isEditingSettings ? (
+                        <input 
+                          type="text"
+                          value={adminSettings.city}
+                          onChange={e => setAdminSettings({...adminSettings, city: e.target.value})}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all font-bold text-slate-700"
+                          placeholder="Contoh: Jakarta"
+                        />
+                      ) : (
+                        <div className="px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-700">
+                          {adminSettings.city || '-'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-3">
+                    <AlertCircle className="text-amber-500 shrink-0" size={20} />
+                    <p className="text-xs text-amber-800 font-medium leading-relaxed">
+                      Data ini akan ditampilkan pada kop surat dan laporan hasil ujian. Pastikan data yang dimasukkan sudah benar.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                     {activeTab === 'admin_classes' ? (
@@ -2359,12 +2527,17 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            )}
           </div>
         </div>
       </div>
+    </div>
+  </div>
+);
 
-      {/* Notifications */}
+const renderAdminModals = () => (
+  <>
+    {/* Notifications */}
       <AnimatePresence>
         {notification && (
           <motion.div
@@ -2550,8 +2723,8 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
-    </div>
-  );
+    </>
+);
 
   const renderSetupModal = () => (
     <AnimatePresence>
@@ -2702,7 +2875,12 @@ export default function App() {
         {view === 'exam' && renderExam()}
         {view === 'create_exam' && renderCreateExam()}
         {view === 'grade_submission' && renderGradeSubmission()}
-        {view === 'admin' && renderAdminDashboard()}
+        {view === 'admin' && (
+          <>
+            {renderAdminDashboard()}
+            {renderAdminModals()}
+          </>
+        )}
       </AnimatePresence>
     </div>
   );

@@ -705,6 +705,31 @@ app.post("/api/admin/teachers/bulk", asyncHandler(async (req, res) => {
   res.json({ success: true, count: teachersToInsert.length });
 }));
 
+app.get("/api/admin/settings", asyncHandler(async (req, res) => {
+  const { data: settings } = await supabase.from('settings').select('*');
+  const formatted = settings?.reduce((acc: any, curr: any) => {
+    acc[curr.key] = curr.value;
+    return acc;
+  }, {}) || {};
+  res.json(formatted);
+}));
+
+app.post("/api/admin/settings", asyncHandler(async (req, res) => {
+  const settings = req.body;
+  const upserts = Object.entries(settings).map(([key, value]) => ({
+    key,
+    value: String(value),
+    updated_at: new Date().toISOString()
+  }));
+
+  const { error } = await supabase.from('settings').upsert(upserts, { onConflict: 'key' });
+  if (error) {
+    console.error("Error updating settings:", error);
+    return res.status(400).json({ success: false, message: error.message || "Gagal menyimpan pengaturan" });
+  }
+  res.json({ success: true });
+}));
+
 // Error handling middleware
 app.use((err: any, req: any, res: any, next: any) => {
   console.error("API Error:", err);
