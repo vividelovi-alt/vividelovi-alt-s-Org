@@ -131,6 +131,21 @@ app.post("/api/login", asyncHandler(async (req, res) => {
         await supabase.from('users').insert([{ role: 'admin', identifier: 'admin', name: 'Administrator', password: 'admin123' }]);
       }
     }
+
+    // Emergency check for demo teacher (98765)
+    if (role === 'teacher' && identifier === '98765') {
+      const { data: teacherExists } = await supabase.from('users').select('*').eq('identifier', '98765').single();
+      if (!teacherExists) {
+        console.log("Demo teacher missing during login attempt, creating now...");
+        await supabase.from('users').insert([{ 
+          role: 'teacher', 
+          identifier: '98765', 
+          name: 'Diana (Demo)', 
+          password: 'guru',
+          subject: 'Fisika'
+        }]);
+      }
+    }
   } catch (err) {
     console.warn("Emergency admin check failed (likely table doesn't exist yet):", (err as Error).message);
   }
@@ -479,6 +494,62 @@ app.get("/api/exams/:id/analysis", asyncHandler(async (req, res) => {
   res.json({
     totalSubmissions: totalSubmissions || 0,
     questions: questionsAnalysis
+  });
+}));
+
+app.get("/api/exams/:id/detailed-analysis", asyncHandler(async (req, res) => {
+  const examId = req.params.id;
+  
+  // 1. Ambil info ujian
+  const { data: exam } = await supabase.from('exams').select('*').eq('id', examId).single();
+  if (!exam) return res.status(404).json({ success: false, message: "Exam not found" });
+  
+  // 2. Ambil daftar soal
+  const { data: questions } = await supabase.from('questions').select('*').eq('exam_id', examId).order('id', { ascending: true });
+  
+  // 3. Ambil SELURUH siswa di kelas tersebut
+  const { data: allStudents } = await supabase
+    .from('users')
+    .select('id, name, identifier')
+    .eq('role', 'student')
+    .eq('class', exam.class)
+    .order('name', { ascending: true });
+
+  // 4. Ambil data pengerjaan siswa yang sudah ada
+  const { data: submissions } = await supabase
+    .from('submissions')
+    .select('*')
+    .eq('exam_id', examId);
+    
+  // 5. Ambil semua jawaban untuk pengerjaan tersebut
+  const submissionIds = submissions?.map(s => s.id) || [];
+  const { data: answers } = await supabase
+    .from('answers')
+    .select('*')
+    .in('submission_id', submissionIds);
+
+  // 6. Gabungkan data: Tampilkan semua siswa, sertakan data submission jika ada
+  const detailedData = allStudents?.map(student => {
+    const submission = submissions?.find(s => s.student_id === student.id);
+    return {
+      student_id: student.id,
+      student_name: student.name,
+      student_nis: student.identifier,
+      has_submitted: !!submission,
+      submission_id: submission?.id || null,
+      score: submission?.score || 0,
+      answers: submission ? (answers?.filter(a => a.submission_id === submission.id).map(a => ({
+        question_id: a.question_id,
+        answer_text: a.answer_text,
+        score: a.score
+      })) || []) : []
+    };
+  }) || [];
+
+  res.json({
+    exam,
+    questions: questions || [],
+    submissions: detailedData
   });
 }));
 

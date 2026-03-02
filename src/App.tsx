@@ -106,7 +106,15 @@ export default function App() {
   const [view, setView] = useState<'landing' | 'login' | 'dashboard' | 'exam' | 'create_exam' | 'grade_submission' | 'admin'>('landing');
   const [activeTab, setActiveTab] = useState<'exams' | 'grades' | 'analysis' | 'admin_classes' | 'admin_students' | 'admin_teachers'>('exams');
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
-  const [analysisData, setAnalysisData] = useState<{ totalSubmissions: number, questions: any[] } | null>(null);
+  const [analysisData, setAnalysisData] = useState<{
+    exam: any;
+    questions: any[];
+    submissions: any[];
+  } | null>(null);
+  const [analysisFilterDate, setAnalysisFilterDate] = useState('');
+  const [analysisFilterSubject, setAnalysisFilterSubject] = useState('');
+  const [analysisFilterClass, setAnalysisFilterClass] = useState('');
+  const [selectedAnalysisExamId, setSelectedAnalysisExamId] = useState<number | null>(null);
   
   // Admin State
   const [adminClasses, setAdminClasses] = useState<{id: number, name: string}[]>([]);
@@ -246,6 +254,41 @@ export default function App() {
         
         return { data: { success: true, examId: newExam.id }, ok: true, status: 200 };
       }
+    }
+
+    if (url.includes('/api/exams/') && url.includes('/detailed-analysis')) {
+      const examId = parseInt(url.split('/')[3]);
+      const exams = getStorage('exams');
+      const exam = exams.find((e: any) => e.id === examId);
+      if (!exam) return { data: { success: false }, ok: false, status: 404 };
+
+      const questions = getStorage('questions').filter((q: any) => q.exam_id === examId);
+      const allUsers = getStorage('users');
+      const classStudents = allUsers.filter((u: any) => u.role === 'student' && u.class === exam.class);
+      const submissions = getStorage('submissions').filter((s: any) => s.exam_id === examId);
+      const answers = getStorage('answers');
+
+      const detailedSubmissions = classStudents.map((student: any) => {
+        const sub = submissions.find((s: any) => s.student_id === student.id);
+        return {
+          student_id: student.id,
+          student_name: student.name,
+          student_nis: student.identifier,
+          has_submitted: !!sub,
+          score: sub?.score || 0,
+          answers: sub ? answers.filter((a: any) => a.submission_id === sub.id) : []
+        };
+      });
+
+      return {
+        data: {
+          exam,
+          questions,
+          submissions: detailedSubmissions
+        },
+        ok: true,
+        status: 200
+      };
     }
 
     return { data: [], ok: true, status: 200 };
@@ -405,14 +448,14 @@ export default function App() {
 
   const fetchAnalysis = async (examId: number) => {
     try {
-      console.log(`Requesting analysis for exam: ${examId}`);
-      const { data, ok, status } = await safeFetch(`/api/exams/${examId}/analysis`);
+      console.log(`Requesting detailed analysis for exam: ${examId}`);
+      const { data, ok, status } = await safeFetch(`/api/exams/${examId}/detailed-analysis`);
       if (!ok) {
         console.error(`Analysis request failed with status ${status}`);
         throw new Error(`Server returned ${status}`);
       }
       setAnalysisData(data);
-      setSelectedExamId(examId);
+      setSelectedAnalysisExamId(examId);
     } catch (err) {
       console.error("Failed to fetch analysis", err);
     }
@@ -1369,106 +1412,210 @@ export default function App() {
                 )
               ) : activeTab === 'analysis' ? (
                 /* Analysis Tab (Teacher Only) */
-                !selectedExamId ? (
-                  /* Subject List for Analysis */
-                  exams.length > 0 ? (
-                    exams.map((exam, idx) => (
-                      <motion.div
-                        key={exam.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05 }}
-                        onClick={() => fetchAnalysis(exam.id)}
-                        className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-all cursor-pointer group"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex gap-4">
-                            <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
-                              <BarChart3 className="text-indigo-600 w-6 h-6" />
-                            </div>
-                            <div>
-                              <h4 className="text-lg font-bold text-slate-900">{exam.subject}</h4>
-                              <p className="text-xs text-slate-500">Kelas {exam.class}</p>
-                            </div>
-                          </div>
-                          <ChevronRight className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
-                        </div>
-                      </motion.div>
-                    ))
-                  ) : (
-                    <div className="bg-white p-12 rounded-3xl border border-dashed border-slate-300 text-center">
-                      <p className="text-slate-500 font-medium">Belum ada ujian untuk dianalisis.</p>
-                    </div>
-                  )
-                ) : (
-                  /* Detailed Question Analysis */
-                  <div className="space-y-6">
-                    <button 
-                      onClick={() => { setSelectedExamId(null); setAnalysisData(null); }}
-                      className="text-indigo-600 font-bold text-sm flex items-center gap-1 mb-2 hover:underline"
-                    >
-                      ← Kembali ke Daftar Analisis
-                    </button>
-                    
-                    <div className="bg-indigo-600 p-8 rounded-3xl text-white shadow-xl shadow-indigo-100 mb-8">
-                      <h3 className="text-2xl font-bold mb-2">Analisis Soal: {exams.find(e => e.id === selectedExamId)?.subject}</h3>
-                      <div className="flex items-center gap-4 opacity-90">
-                        <Users size={18} />
-                        <span className="font-medium text-lg">{analysisData?.totalSubmissions} Siswa telah mengerjakan</span>
+                <div className="space-y-6">
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Tanggal Ujian</label>
+                        <input 
+                          type="date" 
+                          value={analysisFilterDate}
+                          onChange={(e) => setAnalysisFilterDate(e.target.value)}
+                          className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Mata Pelajaran</label>
+                        <select 
+                          value={analysisFilterSubject}
+                          onChange={(e) => setAnalysisFilterSubject(e.target.value)}
+                          className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
+                        >
+                          <option value="">Semua Mapel</option>
+                          {Array.from(new Set(exams.map(e => e.subject))).map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Kelas</label>
+                        <select 
+                          value={analysisFilterClass}
+                          onChange={(e) => setAnalysisFilterClass(e.target.value)}
+                          className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
+                        >
+                          <option value="">Semua Kelas</option>
+                          {Array.from(new Set(exams.map(e => e.class))).map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="space-y-4">
-                      {analysisData?.questions.map((q: any, idx: number) => {
-                        const percentage = analysisData.totalSubmissions > 0 
-                          ? (q.correct_count / analysisData.totalSubmissions) * 100 
-                          : 0;
-                        
-                        return (
+                  {!selectedAnalysisExamId ? (
+                    /* Subject List for Analysis */
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {exams
+                        .filter(e => {
+                          const matchesDate = !analysisFilterDate || new Date(e.created_at).toISOString().split('T')[0] === analysisFilterDate;
+                          const matchesSubject = !analysisFilterSubject || e.subject === analysisFilterSubject;
+                          const matchesClass = !analysisFilterClass || e.class === analysisFilterClass;
+                          return matchesDate && matchesSubject && matchesClass;
+                        })
+                        .map((exam, idx) => (
                           <motion.div
-                            key={q.id}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
+                            key={exam.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.05 }}
-                            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"
+                            onClick={() => fetchAnalysis(exam.id)}
+                            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-all cursor-pointer group"
                           >
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md uppercase tracking-wider">
-                                    Soal {idx + 1} • {q.type === 'multiple_choice' ? 'Pilihan Ganda' : 'Essay'}
-                                  </span>
+                            <div className="flex items-center justify-between">
+                              <div className="flex gap-4">
+                                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
+                                  <BarChart3 className="text-indigo-600 w-6 h-6" />
                                 </div>
-                                <p className="text-slate-800 font-medium leading-relaxed">{q.question_text}</p>
-                              </div>
-
-                              <div className="flex items-center gap-8 min-w-[200px] justify-end">
-                                <div className="text-center">
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Benar</span>
-                                  <span className="text-xl font-black text-indigo-600">{q.correct_count}</span>
-                                </div>
-                                <div className="text-center">
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Persentase</span>
-                                  <span className="text-xl font-black text-emerald-600">{percentage.toFixed(1)}%</span>
+                                <div>
+                                  <h4 className="text-lg font-bold text-slate-900">{exam.subject}</h4>
+                                  <p className="text-xs text-slate-500">Kelas {exam.class} • {new Date(exam.created_at).toLocaleDateString('id-ID')}</p>
                                 </div>
                               </div>
-                            </div>
-
-                            <div className="mt-4 w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                              <motion.div 
-                                initial={{ width: 0 }}
-                                animate={{ width: `${percentage}%` }}
-                                transition={{ duration: 1, delay: idx * 0.1 }}
-                                className={`h-full ${percentage > 70 ? 'bg-emerald-500' : percentage > 40 ? 'bg-amber-500' : 'bg-red-500'}`}
-                                style={{ width: `${percentage}%` }}
-                              />
+                              <ChevronRight className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
                             </div>
                           </motion.div>
-                        );
-                      })}
+                        ))
+                      }
+                      {exams.length === 0 && (
+                        <div className="md:col-span-2 bg-white p-12 rounded-3xl border border-dashed border-slate-300 text-center">
+                          <p className="text-slate-500 font-medium">Belum ada ujian untuk dianalisis.</p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )
+                  ) : (
+                    /* Detailed Matrix Analysis */
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <button 
+                          onClick={() => { setSelectedAnalysisExamId(null); setAnalysisData(null); }}
+                          className="text-indigo-600 font-bold text-sm flex items-center gap-1 hover:underline"
+                        >
+                          ← Kembali ke Daftar Analisis
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => window.print()}
+                            className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2"
+                          >
+                            <Download size={14} /> Cetak Laporan
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+                        <div className="p-6 bg-slate-50 border-b border-slate-200">
+                          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Analisis Butir Soal</h3>
+                          <p className="text-sm text-slate-500 font-medium">{analysisData?.exam?.subject} - Kelas {analysisData?.exam?.class}</p>
+                        </div>
+                        
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-slate-100 text-slate-600 font-bold uppercase tracking-widest text-[10px]">
+                                <th className="px-4 py-3 border border-slate-200 text-center" rowSpan={2}>No</th>
+                                <th className="px-4 py-3 border border-slate-200 text-left min-w-[150px]" rowSpan={2}>Nama</th>
+                                <th className="px-4 py-2 border border-slate-200 text-center" colSpan={analysisData?.questions.length}>Skor yang Diperoleh (No Urut Soal)</th>
+                                <th className="px-4 py-3 border border-slate-200 text-center" rowSpan={2}>Jml Benar</th>
+                                <th className="px-4 py-3 border border-slate-200 text-center" rowSpan={2}>% Keter Capaian</th>
+                                <th className="px-4 py-2 border border-slate-200 text-center" colSpan={2}>Ketuntasan Belajar</th>
+                                <th className="px-4 py-3 border border-slate-200 text-center" rowSpan={2}>Ket</th>
+                              </tr>
+                              <tr className="bg-slate-50 text-slate-500 font-bold text-[9px]">
+                                {analysisData?.questions.map((_, i) => (
+                                  <th key={i} className="px-2 py-2 border border-slate-200 text-center min-w-[30px]">{i + 1}</th>
+                                ))}
+                                <th className="px-2 py-2 border border-slate-200 text-center min-w-[40px]">Ya</th>
+                                <th className="px-2 py-2 border border-slate-200 text-center min-w-[40px]">Tdk</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {analysisData?.submissions.map((sub, sIdx) => {
+                                const totalQuestions = analysisData.questions.length;
+                                const correctCount = sub.has_submitted ? sub.answers.filter((a: any) => {
+                                  const q = analysisData.questions.find(quest => quest.id === a.question_id);
+                                  if (!q) return false;
+                                  if (q.type === 'multiple_choice') return a.score > 0;
+                                  return (a.score || 0) >= (100 / totalQuestions) * 0.7; // 70% threshold for essay
+                                }).length : 0;
+                                const percentage = sub.has_submitted ? (correctCount / totalQuestions) * 100 : 0;
+                                const isPassed = sub.has_submitted && percentage >= 70;
+
+                                return (
+                                  <tr key={sub.student_id || sub.id} className={`hover:bg-slate-50 transition-colors ${!sub.has_submitted ? 'opacity-60' : ''}`}>
+                                    <td className="px-4 py-3 border border-slate-200 text-center font-mono text-slate-400">{sIdx + 1}</td>
+                                    <td className="px-4 py-3 border border-slate-200 font-bold text-slate-700">
+                                      {sub.student_name}
+                                      {!sub.has_submitted && <span className="ml-2 text-[8px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded uppercase tracking-tighter">Belum Ujian</span>}
+                                    </td>
+                                    {analysisData.questions.map((q) => {
+                                      if (!sub.has_submitted) {
+                                        return <td key={q.id} className="px-2 py-3 border border-slate-200 text-center text-slate-300">-</td>;
+                                      }
+                                      const ans = sub.answers.find((a: any) => a.question_id === q.id);
+                                      const isCorrect = q.type === 'multiple_choice' ? (ans?.score > 0) : ((ans?.score || 0) >= (100 / totalQuestions) * 0.7);
+                                      return (
+                                        <td key={q.id} className={`px-2 py-3 border border-slate-200 text-center font-bold ${isCorrect ? 'text-emerald-600' : 'text-red-400'}`}>
+                                          {isCorrect ? '1' : '0'}
+                                        </td>
+                                      );
+                                    })}
+                                    <td className="px-4 py-3 border border-slate-200 text-center font-black text-indigo-600">{sub.has_submitted ? correctCount : '-'}</td>
+                                    <td className="px-4 py-3 border border-slate-200 text-center font-bold text-slate-600">{sub.has_submitted ? percentage.toFixed(1) : '-'}</td>
+                                    <td className="px-4 py-3 border border-slate-200 text-center text-emerald-600 font-black">{sub.has_submitted && isPassed ? '√' : ''}</td>
+                                    <td className="px-4 py-3 border border-slate-200 text-center text-red-500 font-black">{sub.has_submitted && !isPassed ? '√' : ''}</td>
+                                    <td className="px-4 py-3 border border-slate-200 text-center text-[10px] text-slate-400">{sub.has_submitted ? '-' : 'Belum'}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot>
+                              <tr className="bg-slate-50 font-bold">
+                                <td className="px-4 py-3 border border-slate-200 text-right" colSpan={2}>Jumlah Benar</td>
+                                {analysisData?.questions.map((q) => {
+                                  const totalCorrect = analysisData.submissions.filter(sub => {
+                                    const ans = sub.answers.find((a: any) => a.question_id === q.id);
+                                    if (q.type === 'multiple_choice') return ans?.score > 0;
+                                    return (ans?.score || 0) >= (100 / analysisData.questions.length) * 0.7;
+                                  }).length;
+                                  return (
+                                    <td key={q.id} className="px-2 py-3 border border-slate-200 text-center text-indigo-600">{totalCorrect}</td>
+                                  );
+                                })}
+                                <td className="bg-slate-100 border border-slate-200" colSpan={5}></td>
+                              </tr>
+                              <tr className="bg-slate-100 font-bold">
+                                <td className="px-4 py-3 border border-slate-200 text-right" colSpan={2}>% Ketuntasan</td>
+                                {analysisData?.questions.map((q) => {
+                                  const totalCorrect = analysisData.submissions.filter(sub => {
+                                    const ans = sub.answers.find((a: any) => a.question_id === q.id);
+                                    if (q.type === 'multiple_choice') return ans?.score > 0;
+                                    return (ans?.score || 0) >= (100 / analysisData.questions.length) * 0.7;
+                                  }).length;
+                                  const percentage = analysisData.submissions.length > 0 ? (totalCorrect / analysisData.submissions.length) * 100 : 0;
+                                  return (
+                                    <td key={q.id} className="px-2 py-3 border border-slate-200 text-center text-emerald-600">{Math.round(percentage)}</td>
+                                  );
+                                })}
+                                <td className="bg-slate-200 border border-slate-200" colSpan={5}></td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 /* Grades Tab */
                 user?.role === 'teacher' ? (
