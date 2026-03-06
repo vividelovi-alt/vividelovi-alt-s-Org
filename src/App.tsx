@@ -1789,10 +1789,18 @@ export default function App() {
                         
                         {user?.role === 'student' ? (
                           <button 
-                            onClick={() => startExam(exam)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-md shadow-indigo-100 flex items-center gap-1 transition-all"
+                            onClick={() => {
+                              if (exam.status === 'active') startExam(exam);
+                            }}
+                            disabled={exam.status !== 'active'}
+                            className={`px-5 py-2 rounded-xl text-sm font-bold shadow-md flex items-center gap-1 transition-all ${
+                              exam.status === 'active' 
+                                ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100 cursor-pointer' 
+                                : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                            }`}
                           >
-                            Kerjakan <ChevronRight size={16} />
+                            {exam.status === 'active' ? 'Kerjakan' : (exam.status === 'finished' ? 'Selesai' : 'Belum Dimulai')}
+                            {exam.status === 'active' && <ChevronRight size={16} />}
                           </button>
                         ) : (
                           <div className="flex items-center gap-2">
