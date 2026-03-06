@@ -234,8 +234,14 @@ app.get("/api/exams", asyncHandler(async (req, res) => {
     }
 
     // Only show active exams to students
-    query = query.eq('status', 'active');
-
+    // query = query.eq('status', 'active');
+    // User request: Show all exams, but disable button if not active. 
+    // We might still want to hide 'finished' exams if they are done? 
+    // But for now let's show all non-submitted exams as requested "selalu tampil jika ada".
+    // Actually, maybe we should filter out 'finished' if the teacher ended it?
+    // But the user only mentioned "if teacher hasn't clicked Start".
+    // Let's just remove the filter for now.
+    
     const { data: exams } = await query;
     
     const formattedExams = exams?.map(e => ({
