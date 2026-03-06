@@ -337,13 +337,39 @@ export default function App() {
       };
     }
 
+    if (url.includes('/api/exams/') && url.includes('/status')) {
+      if (method === 'PATCH') {
+        const examId = parseInt(url.split('/')[3]);
+        const exams = getStorage('exams');
+        const examIndex = exams.findIndex((e: any) => e.id === examId);
+        if (examIndex > -1) {
+          exams[examIndex].status = body.status;
+          if (body.status === 'active') exams[examIndex].started_at = new Date().toISOString();
+          if (body.status === 'finished') exams[examIndex].ended_at = new Date().toISOString();
+          setStorage('exams', exams);
+          return { data: { success: true }, ok: true, status: 200 };
+        }
+        return { data: { success: false, message: 'Exam not found' }, ok: false, status: 404 };
+      }
+    }
+
     return { data: [], ok: true, status: 200 };
   };
 
   const safeFetch = async (url: string, options?: RequestInit) => {
     if (isDemoMode) return handleDemoApi(url, options);
+    
+    const fetchOptions = { ...options };
+    if (fetchOptions.body && typeof fetchOptions.body === 'string' && 
+       (fetchOptions.body.trim().startsWith('{') || fetchOptions.body.trim().startsWith('['))) {
+      fetchOptions.headers = {
+        'Content-Type': 'application/json',
+        ...(fetchOptions.headers || {})
+      };
+    }
+
     try {
-      const res = await fetch(url, options);
+      const res = await fetch(url, fetchOptions);
       const text = await res.text();
       let data = null;
       try {
@@ -530,12 +556,15 @@ export default function App() {
   };
 
   const updateExamStatus = async (examId: number, status: 'active' | 'finished') => {
+    console.log(`Updating exam status: ${examId} to ${status}`);
     try {
-      const { ok } = await safeFetch(`/api/exams/${examId}/status`, {
+      const { ok, error, data } = await safeFetch(`/api/exams/${examId}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status })
       });
       
+      console.log('Update response:', { ok, error, data });
+
       if (ok) {
         fetchExams();
         setNotification({ 
@@ -543,10 +572,13 @@ export default function App() {
           type: 'success', 
           id: Date.now() 
         });
+      } else {
+        const serverMessage = data && (typeof data === 'string' ? data : data.message);
+        throw new Error(serverMessage || error || 'Unknown error');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update exam status", err);
-      setNotification({ message: 'Gagal mengubah status ujian.', type: 'error', id: Date.now() });
+      setNotification({ message: `Gagal mengubah status ujian: ${err.message}`, type: 'error', id: Date.now() });
     }
   };
 
@@ -2031,19 +2063,21 @@ export default function App() {
                                 {exam.status === 'active' ? 'Sedang Berlangsung' : 
                                  exam.status === 'finished' ? 'Selesai' : 'Belum Dimulai'}
                               </span>
-                              {exam.status === 'active' && exam.started_at && (
-                                <ExamTimer startedAt={exam.started_at} />
-                              )}
                             </div>
                           </div>
                           
                           <div className="flex items-center gap-2">
+                            {exam.status === 'active' && exam.started_at && (
+                              <div className="mr-2">
+                                <ExamTimer startedAt={exam.started_at} />
+                              </div>
+                            )}
                             {exam.status !== 'active' && (
                               <button
                                 onClick={() => updateExamStatus(exam.id, 'active')}
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md"
                               >
-                                Mulai Ujian
+                                MULAI UJIAN
                               </button>
                             )}
                             {exam.status === 'active' && (
@@ -2051,7 +2085,7 @@ export default function App() {
                                 onClick={() => updateExamStatus(exam.id, 'finished')}
                                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md"
                               >
-                                Akhiri Ujian
+                                AKHIRI UJIAN
                               </button>
                             )}
                             <button
