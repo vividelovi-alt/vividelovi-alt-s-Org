@@ -140,6 +140,7 @@ export default function App() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [activeExam, setActiveExam] = useState<Exam | null>(null);
@@ -1793,30 +1794,33 @@ export default function App() {
                   ) : (
                     /* Detailed Matrix Analysis */
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <button 
-                          onClick={() => { setSelectedAnalysisExamId(null); setAnalysisData(null); }}
-                          className="text-indigo-600 font-bold text-sm flex items-center gap-1 hover:underline"
-                        >
-                          ← Kembali ke Daftar Analisis
-                        </button>
-                        <div className="flex items-center gap-2">
+                      {!showPrintPreview && (
+                        <div className="flex items-center justify-between mb-4">
                           <button 
-                            onClick={downloadAnalysisExcel}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md"
+                            onClick={() => { setSelectedAnalysisExamId(null); setAnalysisData(null); }}
+                            className="text-indigo-600 font-bold text-sm flex items-center gap-1 hover:underline"
                           >
-                            <FileText size={14} /> Download Excel
+                            ← Kembali ke Daftar Analisis
                           </button>
-                          <button 
-                            onClick={() => window.print()}
-                            className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md"
-                          >
-                            <Printer size={14} /> Cetak Laporan
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={downloadAnalysisExcel}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md"
+                            >
+                              <FileText size={14} /> Download Excel
+                            </button>
+                            <button 
+                              onClick={() => setShowPrintPreview(true)}
+                              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md"
+                            >
+                              <Printer size={14} /> Cetak Laporan
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
-                      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden no-print">
+                      {!showPrintPreview ? (
+                        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden no-print">
                         <div className="p-6 bg-slate-50 border-b border-slate-200">
                           <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Analisis Butir Soal</h3>
                           <p className="text-sm text-slate-500 font-medium">{analysisData?.exam?.subject} - Kelas {analysisData?.exam?.class}</p>
@@ -1826,20 +1830,25 @@ export default function App() {
                           <table className="w-full text-xs border-collapse">
                             <thead>
                               <tr className="bg-slate-100 text-slate-600 font-bold uppercase tracking-widest text-[10px]">
-                                <th className="px-4 py-3 border border-slate-200 text-center" rowSpan={2}>No</th>
-                                <th className="px-4 py-3 border border-slate-200 text-left min-w-[150px]" rowSpan={2}>Nama</th>
+                                <th className="px-4 py-3 border border-slate-200 text-center" rowSpan={3}>No</th>
+                                <th className="px-4 py-3 border border-slate-200 text-left min-w-[150px]" rowSpan={3}>Nama</th>
                                 <th className="px-4 py-2 border border-slate-200 text-center" colSpan={analysisData?.questions.length}>Skor yang Diperoleh (No Urut Soal)</th>
-                                <th className="px-4 py-3 border border-slate-200 text-center" rowSpan={2}>Jml Benar</th>
-                                <th className="px-4 py-3 border border-slate-200 text-center" rowSpan={2}>% Keter Capaian</th>
-                                <th className="px-4 py-2 border border-slate-200 text-center" colSpan={2}>Ketuntasan Belajar</th>
-                                <th className="px-4 py-3 border border-slate-200 text-center" rowSpan={2}>Ket</th>
+                                <th className="px-4 py-2 border border-slate-200 text-center" rowSpan={2}>Jml</th>
+                                <th className="px-4 py-2 border border-slate-200 text-center" rowSpan={2}>%</th>
+                                <th className="px-4 py-2 border border-slate-200 text-center" colSpan={2}>Ketuntasan</th>
+                                <th className="px-4 py-3 border border-slate-200 text-center" rowSpan={3}>Ket</th>
                               </tr>
                               <tr className="bg-slate-50 text-slate-500 font-bold text-[9px]">
                                 {analysisData?.questions.map((_, i) => (
-                                  <th key={i} className="px-2 py-2 border border-slate-200 text-center min-w-[30px]">{i + 1}</th>
+                                  <th key={i} className="px-2 py-2 border border-slate-200 text-center min-w-[30px]" rowSpan={2}>{i + 1}</th>
                                 ))}
-                                <th className="px-2 py-2 border border-slate-200 text-center min-w-[40px]">Ya</th>
-                                <th className="px-2 py-2 border border-slate-200 text-center min-w-[40px]">Tdk</th>
+                                <th className="px-2 py-2 border border-slate-200 text-center" colSpan={2}>Belajar</th>
+                              </tr>
+                              <tr className="bg-slate-50 text-slate-500 font-bold text-[8px]">
+                                <th className="px-2 py-1 border border-slate-200 text-center">Benar</th>
+                                <th className="px-2 py-1 border border-slate-200 text-center">Capaian</th>
+                                <th className="px-2 py-1 border border-slate-200 text-center">Ya</th>
+                                <th className="px-2 py-1 border border-slate-200 text-center">Tdk</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1916,9 +1925,40 @@ export default function App() {
                           </table>
                         </div>
                       </div>
+                    ) : (
+                      <div className="bg-white p-8 rounded-3xl shadow-2xl border border-slate-200 no-print">
+                          <div className="flex justify-between items-center mb-8">
+                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Pratinjau Cetak Laporan</h2>
+                            <div className="flex gap-3">
+                              <button 
+                                onClick={() => setShowPrintPreview(false)}
+                                className="px-6 py-2 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-all"
+                              >
+                                Tutup Pratinjau
+                              </button>
+                              <button 
+                                onClick={() => window.print()}
+                                className="px-6 py-2 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all shadow-lg flex items-center gap-2"
+                              >
+                                <Printer size={18} /> Cetak Sekarang
+                              </button>
+                            </div>
+                          </div>
+                          <div className="overflow-x-auto bg-slate-50 p-8 rounded-2xl border border-slate-100">
+                            <div className="bg-white p-12 shadow-sm mx-auto min-w-[1000px] border border-slate-200">
+                               {/* The actual content is below, we just provide the container here if needed, 
+                                   but actually we'll just let the print-only div flow into here or just below it */}
+                               <p className="text-center text-slate-400 italic text-sm mb-4">Format Laporan (Sesuai Tampilan Cetak)</p>
+                               <div className="border-t border-slate-100 pt-8">
+                                  {/* Content will be shown by the conditional class below */}
+                               </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
-                      {/* Printable View (Hidden on Screen) */}
-                      <div className="print-only p-8 bg-white text-black font-serif text-[10px]">
+                      {/* Printable View (Hidden on Screen unless showPrintPreview) */}
+                      <div className={`${showPrintPreview ? 'block' : 'print-only'} p-8 bg-white text-black font-sans text-[10px] ${showPrintPreview ? 'max-w-[1000px] mx-auto shadow-2xl border border-slate-200 mt-8 mb-12 rounded-sm' : ''}`}>
                         <div className="text-center mb-6">
                           <h2 className="text-lg font-bold uppercase underline">Analisis Hasil Evaluasi</h2>
                         </div>
@@ -1962,17 +2002,19 @@ export default function App() {
                               <th className="border border-black p-1 text-left min-w-[120px]" rowSpan={3}>NAMA</th>
                               <th className="border border-black p-1" colSpan={analysisData?.questions.length}>SKOR YANG DIPEROLEH</th>
                               <th className="border border-black p-1" rowSpan={2}>JML</th>
-                              <th className="border border-black p-1" rowSpan={3}>%</th>
-                              <th className="border border-black p-1" colSpan={2} rowSpan={2}>KETUNTASAN</th>
+                              <th className="border border-black p-1" rowSpan={2}>%</th>
+                              <th className="border border-black p-1" colSpan={2}>KETUNTASAN</th>
                               <th className="border border-black p-1" rowSpan={3}>KET</th>
                             </tr>
                             <tr>
                               {analysisData?.questions.map((_, i) => (
                                 <th key={i} className="border border-black p-0.5 w-6" rowSpan={2}>{i + 1}</th>
                               ))}
+                              <th className="border border-black p-0.5" colSpan={2}>BELAJAR</th>
                             </tr>
                             <tr>
                               <th className="border border-black p-0.5">BENAR</th>
+                              <th className="border border-black p-0.5">CAPAIAN</th>
                               <th className="border border-black p-0.5">YA</th>
                               <th className="border border-black p-0.5">TDK</th>
                             </tr>
