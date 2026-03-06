@@ -312,22 +312,51 @@ app.put("/api/exams/:id", asyncHandler(async (req, res) => {
 }));
 
 app.patch("/api/exams/:id/status", asyncHandler(async (req, res) => {
-  const { status } = req.body;
-  if (!['draft', 'active', 'finished'].includes(status)) {
-    return res.status(400).json({ success: false, message: "Invalid status" });
+  try {
+    const { status } = req.body;
+    if (!['draft', 'active', 'finished'].includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid status" });
+    }
+
+    const updates: any = { status };
+    if (status === 'active') {
+      updates.started_at = new Date().toISOString();
+    } else if (status === 'finished') {
+      updates.ended_at = new Date().toISOString();
+    }
+
+    // Try updating with timestamps first
+    const { error } = await supabase.from('exams').update(updates).eq('id', req.params.id);
+    
+    if (error) {
+      // Check for schema/column errors
+      if (error.message.includes('column') || error.message.includes('schema cache')) {
+        console.warn("Update with timestamps failed, retrying with status only. Error:", error.message);
+        // Fallback: Update only status
+        const { error: fallbackError } = await supabase.from('exams').update({ status }).eq('id', req.params.id);
+        if (fallbackError) throw fallbackError;
+        
+        // If fallback succeeds, return success but maybe warn in logs
+        console.log("Fallback update successful (status only).");
+        return res.json({ 
+          success: true, 
+          warning: "Timestamps were not saved because database columns are missing. Please run the migration script." 
+        });
+      }
+      throw error;
+    }
+
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("Error updating exam status:", err);
+    if (err.message && err.message.includes('column "status" of relation "exams" does not exist')) {
+      return res.status(500).json({ 
+        success: false, 
+        message: "Database schema mismatch: 'status' column missing. Please run the migration script." 
+      });
+    }
+    res.status(500).json({ success: false, message: err.message || "Internal Server Error" });
   }
-
-  const updates: any = { status };
-  if (status === 'active') {
-    updates.started_at = new Date().toISOString();
-  } else if (status === 'finished') {
-    updates.ended_at = new Date().toISOString();
-  }
-
-  const { error } = await supabase.from('exams').update(updates).eq('id', req.params.id);
-  if (error) throw error;
-
-  res.json({ success: true });
 }));
 
 app.delete("/api/exams/:id", asyncHandler(async (req, res) => {
@@ -765,8 +794,45 @@ app.use((err: any, req: any, res: any, next: any) => {
   });
 });
 
+async function runMigrations() {
+  try {
+    console.log("Running database migrations...");
+    const client = getSupabase();
+    if (!client) {
+      console.warn("Skipping migrations: Supabase client not initialized.");
+      return;
+    }
+
+    // Check if 'status' column exists in 'exams' table
+    const { error: checkError } = await client.from('exams').select('status').limit(1);
+    
+    if (checkError && checkError.message.includes('column "status" does not exist')) {
+      console.log("Migration: Adding 'status', 'started_at', 'ended_at' columns to 'exams' table...");
+      
+      // We cannot run DDL (ALTER TABLE) via Supabase JS client directly unless we use a stored procedure or raw SQL if enabled.
+      // However, the standard client doesn't support raw SQL execution easily without an extension.
+      // But we can try to use the RPC approach if a function exists, or just log a warning.
+      
+      // Actually, we can't easily run raw SQL from here with just the JS client unless we have a specific setup.
+      // So we will just log a very clear instruction.
+      console.error("CRITICAL: Database schema is missing required columns.");
+      console.error("Please run the following SQL in your Supabase SQL Editor:");
+      console.error(`
+        ALTER TABLE exams ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'finished'));
+        ALTER TABLE exams ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
+        ALTER TABLE exams ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
+      `);
+    } else {
+      console.log("Migration check passed: 'exams' table has 'status' column.");
+    }
+  } catch (err) {
+    console.error("Migration check failed:", err);
+  }
+}
+
 async function startServer() {
   console.log("Starting server initialization...");
+  await runMigrations();
   const PORT = 3000;
   
   try {
