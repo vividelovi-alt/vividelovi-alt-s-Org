@@ -128,7 +128,10 @@ app.post("/api/login", asyncHandler(async (req, res) => {
       const { data: adminExists } = await supabase.from('users').select('*').eq('identifier', 'admin').single();
       if (!adminExists) {
         console.log("Admin user missing during login attempt, creating now...");
-        await supabase.from('users').insert([{ role: 'admin', identifier: 'admin', name: 'Administrator', password: 'admin123' }]);
+        await supabase.from('users').insert([{ role: 'admin', identifier: 'admin', name: 'Administrator', password: 'admin' }]);
+      } else if (adminExists.password === 'admin123') {
+        console.log("Updating legacy admin password to 'admin'...");
+        await supabase.from('users').update({ password: 'admin' }).eq('identifier', 'admin');
       }
     }
 
@@ -230,6 +233,9 @@ app.get("/api/exams", asyncHandler(async (req, res) => {
       query = query.not('id', 'in', `(${submittedExamIds.join(',')})`);
     }
 
+    // Only show active exams to students
+    query = query.eq('status', 'active');
+
     const { data: exams } = await query;
     
     const formattedExams = exams?.map(e => ({
@@ -301,6 +307,25 @@ app.put("/api/exams/:id", asyncHandler(async (req, res) => {
 
   const { error: questionsError } = await supabase.from('questions').insert(questionsToInsert);
   if (questionsError) throw questionsError;
+
+  res.json({ success: true });
+}));
+
+app.patch("/api/exams/:id/status", asyncHandler(async (req, res) => {
+  const { status } = req.body;
+  if (!['draft', 'active', 'finished'].includes(status)) {
+    return res.status(400).json({ success: false, message: "Invalid status" });
+  }
+
+  const updates: any = { status };
+  if (status === 'active') {
+    updates.started_at = new Date().toISOString();
+  } else if (status === 'finished') {
+    updates.ended_at = new Date().toISOString();
+  }
+
+  const { error } = await supabase.from('exams').update(updates).eq('id', req.params.id);
+  if (error) throw error;
 
   res.json({ success: true });
 }));
