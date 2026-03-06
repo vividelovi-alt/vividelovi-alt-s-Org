@@ -76,3 +76,35 @@
     color: hsl(var(--foreground));
   }
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  @page {
+    size: landscape;
+    margin: 1cm;
+  }
+  .print-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  table {
+    border-collapse: collapse !important;
+  }
+  th, td {
+    border: 1px solid black !important;
+  }
+}
+
+.print-only {
+  display: none;
+}
