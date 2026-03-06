@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sun, Moon } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import XLSX from 'xlsx-js-style';
 import { 
   User, 
   GraduationCap, 
@@ -38,7 +38,8 @@ import {
   Upload,
   Save,
   X,
-  AlertCircle
+  AlertCircle,
+  Printer,
 } from 'lucide-react';
 
 // --- Types ---
@@ -419,18 +420,26 @@ export default function App() {
     }
   };
 
+  const fetchSettings = async () => {
+    try {
+      const { data, ok } = await safeFetch('/api/admin/settings');
+      if (ok) setAdminSettings(data || {});
+    } catch (err) {
+      console.error("Failed to fetch settings", err);
+    }
+  };
+
   const fetchAdminData = async () => {
     try {
-      const [classesRes, studentsRes, teachersRes, settingsRes] = await Promise.all([
+      const [classesRes, studentsRes, teachersRes] = await Promise.all([
         safeFetch('/api/admin/classes'),
         safeFetch(`/api/admin/students${selectedClassFilter ? `?class=${selectedClassFilter}` : ''}`),
-        safeFetch('/api/admin/teachers'),
-        safeFetch('/api/admin/settings')
+        safeFetch('/api/admin/teachers')
       ]);
       if (classesRes.ok) setAdminClasses(classesRes.data);
       if (studentsRes.ok) setAdminStudents(studentsRes.data);
       if (teachersRes.ok) setAdminTeachers(teachersRes.data);
-      if (settingsRes.ok) setAdminSettings(settingsRes.data || {});
+      await fetchSettings();
     } catch (err) {
       console.error("Failed to fetch admin data", err);
     }
@@ -439,6 +448,8 @@ export default function App() {
   useEffect(() => {
     if (user?.role === 'admin') {
       fetchAdminData();
+    } else if (user?.role === 'teacher') {
+      fetchSettings();
     }
   }, [user, selectedClassFilter]);
 
@@ -475,9 +486,259 @@ export default function App() {
       }
       setAnalysisData(data);
       setSelectedAnalysisExamId(examId);
+      if (user?.role === 'teacher') fetchSettings();
     } catch (err) {
       console.error("Failed to fetch analysis", err);
     }
+  };
+
+  const downloadAnalysisExcel = () => {
+    if (!analysisData) return;
+    
+    const { exam, questions, submissions } = analysisData;
+    const wb = XLSX.utils.book_new();
+    
+    // Prepare header info
+    const headerInfo = [
+      ['ANALISIS HASIL EVALUASI'],
+      [],
+      ['Sekolah :', '', adminSettings.school_name || '-'],
+      ['Mata Pelajaran :', '', exam.subject],
+      ['Kelas / Semester :', '', exam.class],
+      ['Tahun Pelajaran :', '', adminSettings.academic_year || '-'],
+      ['Banyak soal :', '', questions.length],
+      []
+    ];
+
+    // Table Header
+    const tableHeader1 = ['No', 'NAMA', 'SKOR YANG DIPEROLEH', ...Array(questions.length - 1).fill(''), 'JML', '%', 'KETUNTASAN', '', 'KET'];
+    const tableHeader2 = ['', '', ...questions.map((_, i) => i + 1), 'BENAR', 'KETER', 'BELAJAR', '', ''];
+    const tableHeader3 = ['', '', ...Array(questions.length).fill(''), '', 'CAPAIAN', 'YA', 'TDK', ''];
+
+    const rows = [...headerInfo, tableHeader1, tableHeader2, tableHeader3];
+
+    // Data Rows
+    submissions.forEach((s, idx) => {
+      const totalQuestions = questions.length;
+      const correctCount = s.has_submitted ? s.answers.filter((a: any) => {
+        const q = questions.find(quest => quest.id === a.question_id);
+        if (!q) return false;
+        if (q.type === 'multiple_choice') return a.score > 0;
+        return (a.score || 0) >= (100 / totalQuestions) * 0.7;
+      }).length : 0;
+      
+      const percentage = s.has_submitted ? ((correctCount / totalQuestions) * 100).toFixed(1) : '0.0';
+      const isPassed = s.has_submitted && parseFloat(percentage) >= 70;
+
+      const row = [
+        idx + 1,
+        s.student_name,
+        ...questions.map(q => {
+          if (!s.has_submitted) return '-';
+          const ans = s.answers.find((a: any) => a.question_id === q.id);
+          const isCorrect = q.type === 'multiple_choice' ? (ans?.score > 0) : ((ans?.score || 0) >= (100 / totalQuestions) * 0.7);
+          return isCorrect ? 1 : 0;
+        }),
+        s.has_submitted ? correctCount : '-',
+        s.has_submitted ? percentage : '-',
+        isPassed ? '√' : '',
+        (s.has_submitted && !isPassed) ? '√' : '',
+        s.has_submitted ? '' : 'Belum'
+      ];
+      rows.push(row);
+    });
+
+    // Footer Rows
+    const footerJumlah = ['Jumlah', '', ...questions.map(q => {
+      return submissions.filter(s => {
+        if (!s.has_submitted) return false;
+        const ans = s.answers.find((a: any) => a.question_id === q.id);
+        if (q.type === 'multiple_choice') return ans?.score > 0;
+        return (ans?.score || 0) >= (100 / questions.length) * 0.7;
+      }).length;
+    }), '', '', '', '', ''];
+    
+    const footerPercentage = ['%Ketuntasan', '', ...questions.map(q => {
+      const submittedCount = submissions.filter(s => s.has_submitted).length;
+      if (submittedCount === 0) return '0';
+      const correctCount = submissions.filter(s => {
+        if (!s.has_submitted) return false;
+        const ans = s.answers.find((a: any) => a.question_id === q.id);
+        if (q.type === 'multiple_choice') return ans?.score > 0;
+        return (ans?.score || 0) >= (100 / questions.length) * 0.7;
+      }).length;
+      return ((correctCount / submittedCount) * 100).toFixed(0);
+    }), '', '', '', '', ''];
+
+    rows.push(footerJumlah, footerPercentage);
+    rows.push([]);
+
+    // Column widths
+    const colWidths = [
+      { wch: 5 },  // No
+      { wch: 35 }, // Nama
+      ...questions.map(() => ({ wch: 4 })), // Questions
+      { wch: 8 },  // JML
+      { wch: 8 },  // %
+      { wch: 8 },  // YA
+      { wch: 8 },  // TDK
+      { wch: 15 }  // KET
+    ];
+
+    // Signatures
+    const date = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const teacherColStart = colWidths.length - 2;
+    
+    const sigRow1 = Array(colWidths.length).fill('');
+    sigRow1[teacherColStart] = `${adminSettings.city || 'Kota'}, ${date}`;
+    
+    const sigRow2 = Array(colWidths.length).fill('');
+    sigRow2[0] = 'Mengetahui :';
+    sigRow2[teacherColStart] = 'Guru Mapel';
+    
+    const sigRow3 = Array(colWidths.length).fill('');
+    sigRow3[0] = 'Kepala Sekolah';
+    
+    const sigRowName = Array(colWidths.length).fill('');
+    sigRowName[0] = adminSettings.principal_name || '(Nama Kepala Sekolah)';
+    sigRowName[teacherColStart] = user?.name || '(Nama Guru)';
+    
+    const sigRowNip = Array(colWidths.length).fill('');
+    sigRowNip[0] = `Nip. ${adminSettings.principal_nip || '-'}`;
+    sigRowNip[teacherColStart] = `Nip. ${user?.identifier || '-'}`;
+
+    rows.push(sigRow1, sigRow2, sigRow3);
+    rows.push([], [], []);
+    rows.push(sigRowName, sigRowNip);
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+
+    // Page Setup: Landscape and A4 (paperSize 9)
+    ws['!pageSetup'] = { orientation: 'landscape', paperSize: 9 };
+    ws['!printOptions'] = { horizontalCentered: true };
+
+    // Styling
+    const borderStyle = {
+      top: { style: 'thin' },
+      bottom: { style: 'thin' },
+      left: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    
+    // Apply styles to table area (starts at row index 8)
+    // Table ends at footerPercentage which is rows.length - 8 (before signatures and empty rows)
+    const tableEndRow = 10 + submissions.length + 2; // header(3) + data + footer(2) - 1 for 0-index
+
+    for (let R = 8; R <= tableEndRow; ++R) {
+      for (let C = 0; C <= range.e.c; ++C) {
+        const cell_ref = XLSX.utils.encode_cell({ c: C, r: R });
+        if (!ws[cell_ref]) ws[cell_ref] = { t: 's', v: '' };
+        if (!ws[cell_ref].s) ws[cell_ref].s = {};
+        ws[cell_ref].s.border = borderStyle;
+        ws[cell_ref].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+        
+        // Bold table headers (rows 8, 9, 10)
+        if (R >= 8 && R <= 10) {
+          if (!ws[cell_ref].s.font) ws[cell_ref].s.font = {};
+          ws[cell_ref].s.font.bold = true;
+        }
+      }
+    }
+
+    // Left align Nama column in data rows
+    for (let R = 11; R <= 11 + submissions.length - 1; ++R) {
+      const cell_ref = XLSX.utils.encode_cell({ c: 1, r: R });
+      if (ws[cell_ref] && ws[cell_ref].s) {
+        ws[cell_ref].s.alignment.horizontal = 'left';
+      }
+    }
+
+    // Right align Footer Labels (Jumlah, %Ketuntasan)
+    [tableEndRow - 1, tableEndRow].forEach(R => {
+      const cell_ref = XLSX.utils.encode_cell({ c: 0, r: R });
+      if (ws[cell_ref] && ws[cell_ref].s) {
+        ws[cell_ref].s.alignment.horizontal = 'right';
+      }
+    });
+
+    // Title styling (Bold)
+    if (ws['A1']) {
+      ws['A1'].s = {
+        alignment: { horizontal: 'center', vertical: 'center' },
+        font: { bold: true, sz: 14 }
+      };
+    }
+
+    // Signature Styling
+    const lastRow = range.e.r;
+    const nameRow = lastRow - 1;
+    const nipRow = lastRow;
+    const signStartRow = tableEndRow + 2; // sigRow1 (city, date)
+
+    // Principal Side (Column A)
+    for (let R = signStartRow; R <= lastRow; R++) {
+      const cell_ref = XLSX.utils.encode_cell({ c: 0, r: R });
+      if (ws[cell_ref]) {
+        if (!ws[cell_ref].s) ws[cell_ref].s = {};
+        ws[cell_ref].s.alignment = { horizontal: 'left', wrapText: true };
+        if (R >= nameRow) {
+          if (!ws[cell_ref].s.font) ws[cell_ref].s.font = {};
+          ws[cell_ref].s.font.bold = true;
+        }
+      }
+    }
+
+    // Teacher Side (teacherColStart)
+    for (let R = signStartRow; R <= lastRow; R++) {
+      const cell_ref = XLSX.utils.encode_cell({ c: teacherColStart, r: R });
+      if (ws[cell_ref]) {
+        if (!ws[cell_ref].s) ws[cell_ref].s = {};
+        ws[cell_ref].s.alignment = { horizontal: 'left', wrapText: true };
+        if (R >= nameRow) {
+          if (!ws[cell_ref].s.font) ws[cell_ref].s.font = {};
+          ws[cell_ref].s.font.bold = true;
+        }
+      }
+    }
+
+    ws['!cols'] = colWidths;
+
+    // Merging cells
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: colWidths.length - 1 } }, // Title
+      // Labels A3:B3 to A7:B7
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 1 } },
+      { s: { r: 3, c: 0 }, e: { r: 3, c: 1 } },
+      { s: { r: 4, c: 0 }, e: { r: 4, c: 1 } },
+      { s: { r: 5, c: 0 }, e: { r: 5, c: 1 } },
+      { s: { r: 6, c: 0 }, e: { r: 6, c: 1 } },
+      // Table Header Merges
+      { s: { r: 8, c: 0 }, e: { r: 10, c: 0 } }, // No
+      { s: { r: 8, c: 1 }, e: { r: 10, c: 1 } }, // Nama
+      { s: { r: 8, c: 2 }, e: { r: 8, c: 2 + questions.length - 1 } }, // Skor
+      { s: { r: 8, c: 2 + questions.length }, e: { r: 9, c: 2 + questions.length } }, // JML
+      { s: { r: 8, c: 2 + questions.length + 1 }, e: { r: 10, c: 2 + questions.length + 1 } }, // %
+      { s: { r: 8, c: 2 + questions.length + 2 }, e: { r: 9, c: 2 + questions.length + 3 } }, // Ketuntasan
+      { s: { r: 8, c: 2 + questions.length + 4 }, e: { r: 10, c: 2 + questions.length + 4 } }, // KET
+      // Footer Merges (A:B)
+      { s: { r: tableEndRow - 1, c: 0 }, e: { r: tableEndRow - 1, c: 1 } }, // Jumlah
+      { s: { r: tableEndRow, c: 0 }, e: { r: tableEndRow, c: 1 } }, // %Ketuntasan
+      // Signature Merges (Principal Side A:B)
+      { s: { r: tableEndRow + 3, c: 0 }, e: { r: tableEndRow + 3, c: 1 } }, // Mengetahui :
+      { s: { r: tableEndRow + 4, c: 0 }, e: { r: tableEndRow + 4, c: 1 } }, // Kepala Sekolah
+      { s: { r: tableEndRow + 8, c: 0 }, e: { r: tableEndRow + 8, c: 1 } }, // Nama Kepala Sekolah
+      { s: { r: tableEndRow + 9, c: 0 }, e: { r: tableEndRow + 9, c: 1 } }, // NIP Kepala Sekolah
+      // Signature Merges (Teacher Side Last-1:Last)
+      { s: { r: tableEndRow + 2, c: colWidths.length - 2 }, e: { r: tableEndRow + 2, c: colWidths.length - 1 } }, // Date
+      { s: { r: tableEndRow + 3, c: colWidths.length - 2 }, e: { r: tableEndRow + 3, c: colWidths.length - 1 } }, // Guru Mapel
+      { s: { r: tableEndRow + 8, c: colWidths.length - 2 }, e: { r: tableEndRow + 8, c: colWidths.length - 1 } }, // Nama Guru
+      { s: { r: tableEndRow + 9, c: colWidths.length - 2 }, e: { r: tableEndRow + 9, c: colWidths.length - 1 } }, // NIP Guru
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Analisis');
+    XLSX.writeFile(wb, `Analisis_${exam.subject}_${exam.class}.xlsx`);
   };
 
   const fetchSubmissionDetails = async (submissionId: number) => {
@@ -1541,15 +1802,21 @@ export default function App() {
                         </button>
                         <div className="flex items-center gap-2">
                           <button 
-                            onClick={() => window.print()}
-                            className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2"
+                            onClick={downloadAnalysisExcel}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md"
                           >
-                            <Download size={14} /> Cetak Laporan
+                            <FileText size={14} /> Download Excel
+                          </button>
+                          <button 
+                            onClick={() => window.print()}
+                            className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md"
+                          >
+                            <Printer size={14} /> Cetak Laporan
                           </button>
                         </div>
                       </div>
 
-                      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+                      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden no-print">
                         <div className="p-6 bg-slate-50 border-b border-slate-200">
                           <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Analisis Butir Soal</h3>
                           <p className="text-sm text-slate-500 font-medium">{analysisData?.exam?.subject} - Kelas {analysisData?.exam?.class}</p>
@@ -1588,7 +1855,7 @@ export default function App() {
                                 const isPassed = sub.has_submitted && percentage >= 70;
 
                                 return (
-                                  <tr key={sub.student_id || sub.id} className={`hover:bg-slate-50 transition-colors ${!sub.has_submitted ? 'opacity-60' : ''}`}>
+                                  <tr key={sub.student_id} className={`hover:bg-slate-50 transition-colors ${!sub.has_submitted ? 'opacity-60' : ''}`}>
                                     <td className="px-4 py-3 border border-slate-200 text-center font-mono text-slate-400">{sIdx + 1}</td>
                                     <td className="px-4 py-3 border border-slate-200 font-bold text-slate-700">
                                       {sub.student_name}
@@ -1647,6 +1914,157 @@ export default function App() {
                               </tr>
                             </tfoot>
                           </table>
+                        </div>
+                      </div>
+
+                      {/* Printable View (Hidden on Screen) */}
+                      <div className="print-only p-8 bg-white text-black font-serif text-[10px]">
+                        <div className="text-center mb-6">
+                          <h2 className="text-lg font-bold uppercase underline">Analisis Hasil Evaluasi</h2>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-x-8 mb-6">
+                          <div className="space-y-1">
+                            <div className="flex">
+                              <span className="w-32">Sekolah</span>
+                              <span className="mr-2">:</span>
+                              <span className="font-bold uppercase">{adminSettings.school_name || '-'}</span>
+                            </div>
+                            <div className="flex">
+                              <span className="w-32">Mata Pelajaran</span>
+                              <span className="mr-2">:</span>
+                              <span className="font-bold uppercase">{analysisData?.exam?.subject}</span>
+                            </div>
+                            <div className="flex">
+                              <span className="w-32">Kelas / Semester</span>
+                              <span className="mr-2">:</span>
+                              <span className="font-bold uppercase">{analysisData?.exam?.class}</span>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex">
+                              <span className="w-32">Tahun Pelajaran</span>
+                              <span className="mr-2">:</span>
+                              <span className="font-bold uppercase">{adminSettings.academic_year || '-'}</span>
+                            </div>
+                            <div className="flex">
+                              <span className="w-32">Banyak soal</span>
+                              <span className="mr-2">:</span>
+                              <span className="font-bold uppercase">{analysisData?.questions.length}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <table className="w-full border-collapse border border-black text-[9px]">
+                          <thead>
+                            <tr>
+                              <th className="border border-black p-1" rowSpan={3}>No</th>
+                              <th className="border border-black p-1 text-left min-w-[120px]" rowSpan={3}>NAMA</th>
+                              <th className="border border-black p-1" colSpan={analysisData?.questions.length}>SKOR YANG DIPEROLEH</th>
+                              <th className="border border-black p-1" rowSpan={2}>JML</th>
+                              <th className="border border-black p-1" rowSpan={3}>%</th>
+                              <th className="border border-black p-1" colSpan={2} rowSpan={2}>KETUNTASAN</th>
+                              <th className="border border-black p-1" rowSpan={3}>KET</th>
+                            </tr>
+                            <tr>
+                              {analysisData?.questions.map((_, i) => (
+                                <th key={i} className="border border-black p-0.5 w-6" rowSpan={2}>{i + 1}</th>
+                              ))}
+                            </tr>
+                            <tr>
+                              <th className="border border-black p-0.5">BENAR</th>
+                              <th className="border border-black p-0.5">YA</th>
+                              <th className="border border-black p-0.5">TDK</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {analysisData?.submissions.map((s, idx) => {
+                              const totalQuestions = analysisData.questions.length;
+                              const correctCount = s.has_submitted ? s.answers.filter((a: any) => {
+                                const q = analysisData.questions.find(que => que.id === a.question_id);
+                                if (!q) return false;
+                                if (q.type === 'multiple_choice') return a.score > 0;
+                                return (a.score || 0) >= (100 / totalQuestions) * 0.7;
+                              }).length : 0;
+                              
+                              const percentage = s.has_submitted ? ((correctCount / totalQuestions) * 100).toFixed(1) : '0.0';
+                              const isPassed = s.has_submitted && parseFloat(percentage) >= 70;
+                              
+                              return (
+                                <tr key={s.student_id}>
+                                  <td className="border border-black p-1 text-center">{idx + 1}</td>
+                                  <td className="border border-black p-1 uppercase">{s.student_name}</td>
+                                  {analysisData.questions.map(q => {
+                                    if (!s.has_submitted) return <td key={q.id} className="border border-black p-1 text-center">-</td>;
+                                    const ans = s.answers.find((a: any) => a.question_id === q.id);
+                                    const isCorrect = q.type === 'multiple_choice' ? (ans?.score > 0) : ((ans?.score || 0) >= (100 / totalQuestions) * 0.7);
+                                    return (
+                                      <td key={q.id} className="border border-black p-1 text-center">
+                                        {isCorrect ? '1' : '0'}
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="border border-black p-1 text-center font-bold">{s.has_submitted ? correctCount : '-'}</td>
+                                  <td className="border border-black p-1 text-center">{percentage}</td>
+                                  <td className="border border-black p-1 text-center">{isPassed ? '√' : ''}</td>
+                                  <td className="border border-black p-1 text-center">{(s.has_submitted && !isPassed) ? '√' : ''}</td>
+                                  <td className="border border-black p-1 text-center">{s.has_submitted ? '' : 'Belum'}</td>
+                                </tr>
+                              );
+                            })}
+                            <tr key="footer-jumlah" className="font-bold">
+                              <td className="border border-black p-1 text-center" colSpan={2}>Jumlah</td>
+                              {analysisData?.questions.map(q => {
+                                const correctCount = analysisData.submissions.filter(s => {
+                                  if (!s.has_submitted) return false;
+                                  const ans = s.answers.find((a: any) => a.question_id === q.id);
+                                  if (q.type === 'multiple_choice') return ans?.score > 0;
+                                  return (ans?.score || 0) >= (100 / analysisData.questions.length) * 0.7;
+                                }).length;
+                                return (
+                                  <td key={q.id} className="border border-black p-1 text-center">
+                                    {correctCount}
+                                  </td>
+                                );
+                              })}
+                              <td className="border border-black p-1" colSpan={5}></td>
+                            </tr>
+                            <tr key="footer-ketuntasan" className="font-bold">
+                              <td className="border border-black p-1 text-center" colSpan={2}>%Ketuntasan</td>
+                              {analysisData?.questions.map(q => {
+                                const submittedCount = analysisData.submissions.filter(s => s.has_submitted).length;
+                                if (submittedCount === 0) return <td key={q.id} className="border border-black p-1 text-center">0</td>;
+                                const correctCount = analysisData.submissions.filter(s => {
+                                  if (!s.has_submitted) return false;
+                                  const ans = s.answers.find((a: any) => a.question_id === q.id);
+                                  if (q.type === 'multiple_choice') return ans?.score > 0;
+                                  return (ans?.score || 0) >= (100 / analysisData.questions.length) * 0.7;
+                                }).length;
+                                const percentage = ((correctCount / submittedCount) * 100).toFixed(0);
+                                return (
+                                  <td key={q.id} className="border border-black p-1 text-center">
+                                    {percentage}
+                                  </td>
+                                );
+                              })}
+                              <td className="border border-black p-1" colSpan={5}></td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <div className="mt-12 grid grid-cols-2 text-left">
+                          <div className="pl-4">
+                            <p className="mb-1">Mengetahui :</p>
+                            <p className="mb-16">Kepala Sekolah</p>
+                            <p className="font-bold underline uppercase">{adminSettings.principal_name || '(Nama Kepala Sekolah)'}</p>
+                            <p className="font-bold">Nip. {adminSettings.principal_nip || '-'}</p>
+                          </div>
+                          <div className="pl-24">
+                            <p className="mb-1">{adminSettings.city || 'Kota'}, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                            <p className="mb-16">Guru Mapel</p>
+                            <p className="font-bold underline uppercase">{user?.name || '(Nama Guru)'}</p>
+                            <p className="font-bold">Nip. {user?.identifier || '-'}</p>
+                          </div>
                         </div>
                       </div>
                     </div>
