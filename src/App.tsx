@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sun, Moon } from 'lucide-react';
-import XLSX from 'xlsx-js-style';
+import * as XLSX from 'xlsx-js-style';
 import { 
   User, 
   GraduationCap, 
@@ -1474,7 +1474,7 @@ export default function App() {
                 role === 'teacher' ? 'focus:ring-fuchsia-500' : 
                 'focus:ring-amber-500'
               }`}
-              placeholder="••••••••"
+              placeholder={role === 'admin' ? 'admin' : '••••••••'}
               required
             />
           </div>
