@@ -40,6 +40,7 @@ import {
   X,
   AlertCircle,
   Printer,
+  Timer,
 } from 'lucide-react';
 
 // --- Types ---
@@ -61,6 +62,9 @@ interface Exam {
   class: string;
   teacher_name?: string;
   created_at: string;
+  status: 'draft' | 'active' | 'finished';
+  started_at?: string;
+  ended_at?: string;
 }
 
 interface Question {
@@ -102,11 +106,35 @@ interface Notification {
 
 // --- Components ---
 
+const ExamTimer = ({ startedAt }: { startedAt: string }) => {
+  const [elapsed, setElapsed] = useState('00:00:00');
+
+  useEffect(() => {
+    const updateTimer = () => {
+      const start = new Date(startedAt).getTime();
+      const now = new Date().getTime();
+      const diff = Math.max(0, now - start);
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setElapsed(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [startedAt]);
+
+  return <span className="font-mono text-sm font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded">{elapsed}</span>;
+};
+
 export default function App() {
   const [role, setRole] = useState<Role>(null);
   const [user, setUser] = useState<UserData | null>(null);
   const [view, setView] = useState<'landing' | 'login' | 'dashboard' | 'exam' | 'create_exam' | 'grade_submission' | 'admin'>('landing');
-  const [activeTab, setActiveTab] = useState<'exams' | 'grades' | 'analysis' | 'admin_classes' | 'admin_students' | 'admin_teachers' | 'admin_settings'>('exams');
+  const [activeTab, setActiveTab] = useState<'exams' | 'grades' | 'analysis' | 'monitoring' | 'admin_classes' | 'admin_students' | 'admin_teachers' | 'admin_settings'>('exams');
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
   const [analysisData, setAnalysisData] = useState<{
     exam: any;
@@ -140,7 +168,6 @@ export default function App() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [activeExam, setActiveExam] = useState<Exam | null>(null);
@@ -421,6 +448,15 @@ export default function App() {
     }
   };
 
+
+          // We need an endpoint to get single exam status, reusing the list endpoint might be inefficient but works if we filter
+          // Or better, create a specific endpoint or just fetch the list and find the exam.
+          // Since /api/exams returns list, let's use that for now or assume we can fetch /api/exams/:id if implemented.
+          // Checking server.ts, there is no GET /api/exams/:id.
+          // But GET /api/exams returns list.
+          
+
+
   const fetchSettings = async () => {
     try {
       const { data, ok } = await safeFetch('/api/admin/settings');
@@ -490,6 +526,27 @@ export default function App() {
       if (user?.role === 'teacher') fetchSettings();
     } catch (err) {
       console.error("Failed to fetch analysis", err);
+    }
+  };
+
+  const updateExamStatus = async (examId: number, status: 'active' | 'finished') => {
+    try {
+      const { ok } = await safeFetch(`/api/exams/${examId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status })
+      });
+      
+      if (ok) {
+        fetchExams();
+        setNotification({ 
+          message: status === 'active' ? 'Ujian dimulai.' : 'Ujian telah diakhiri.', 
+          type: 'success', 
+          id: Date.now() 
+        });
+      }
+    } catch (err) {
+      console.error("Failed to update exam status", err);
+      setNotification({ message: 'Gagal mengubah status ujian.', type: 'error', id: Date.now() });
     }
   };
 
@@ -1222,6 +1279,26 @@ export default function App() {
     }]);
   };
 
+  useEffect(() => {
+    if (view === 'exam' && activeExam) {
+      const interval = setInterval(async () => {
+        try {
+          const { data, ok } = await safeFetch('/api/exams');
+          if (ok) {
+             const currentExam = data.find((e: any) => e.id === activeExam.id);
+             if (!currentExam || currentExam.status !== 'active') {
+                setNotification({ message: 'Ujian telah berakhir.', type: 'error', id: Date.now() });
+                submitExam();
+             }
+          }
+        } catch (err) {
+          console.error("Failed to check exam status", err);
+        }
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [view, activeExam]);
+
   const saveExam = async () => {
     if (!user || !newExamSubject || !newExamClass || newQuestions.length === 0) {
       showNotification("Mohon lengkapi data ujian", "error");
@@ -1622,13 +1699,22 @@ export default function App() {
                 Nilai Ujian
               </button>
               {user?.role === 'teacher' && (
-                <button 
-                  onClick={() => { setActiveTab('analysis'); setSelectedExamId(null); setAnalysisData(null); }}
-                  className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'analysis' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`} 
-                >
-                  <BarChart3 size={18} />
-                  Analisis Soal
-                </button>
+                <>
+                  <button 
+                    onClick={() => { setActiveTab('analysis'); setSelectedExamId(null); setAnalysisData(null); }}
+                    className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'analysis' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`} 
+                  >
+                    <BarChart3 size={18} />
+                    Analisis Soal
+                  </button>
+                  <button 
+                    onClick={() => { setActiveTab('monitoring'); setSelectedExamId(null); }}
+                    className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'monitoring' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`} 
+                  >
+                    <Timer size={18} />
+                    Ujian
+                  </button>
+                </>
               )}
             </div>
             
@@ -1794,7 +1880,6 @@ export default function App() {
                   ) : (
                     /* Detailed Matrix Analysis */
                     <div className="space-y-4">
-                      {!showPrintPreview && (
                         <div className="flex items-center justify-between mb-4">
                           <button 
                             onClick={() => { setSelectedAnalysisExamId(null); setAnalysisData(null); }}
@@ -1809,18 +1894,10 @@ export default function App() {
                             >
                               <FileText size={14} /> Download Excel
                             </button>
-                            <button 
-                              onClick={() => setShowPrintPreview(true)}
-                              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md"
-                            >
-                              <Printer size={14} /> Cetak Laporan
-                            </button>
                           </div>
                         </div>
-                      )}
 
-                      {!showPrintPreview ? (
-                        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden no-print">
+                      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
                         <div className="p-6 bg-slate-50 border-b border-slate-200">
                           <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Analisis Butir Soal</h3>
                           <p className="text-sm text-slate-500 font-medium">{analysisData?.exam?.subject} - Kelas {analysisData?.exam?.class}</p>
@@ -1925,192 +2002,188 @@ export default function App() {
                           </table>
                         </div>
                       </div>
-                    ) : (
-                      <div className="bg-white p-8 rounded-3xl shadow-2xl border border-slate-200 no-print">
-                          <div className="flex justify-between items-center mb-8">
-                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Pratinjau Cetak Laporan</h2>
-                            <div className="flex gap-3">
-                              <button 
-                                onClick={() => setShowPrintPreview(false)}
-                                className="px-6 py-2 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-all"
-                              >
-                                Tutup Pratinjau
-                              </button>
-                              <button 
-                                onClick={() => window.print()}
-                                className="px-6 py-2 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all shadow-lg flex items-center gap-2"
-                              >
-                                <Printer size={18} /> Cetak Sekarang
-                              </button>
-                            </div>
-                          </div>
-                          <div className="overflow-x-auto bg-slate-50 p-8 rounded-2xl border border-slate-100">
-                            <div className="bg-white p-12 shadow-sm mx-auto min-w-[1000px] border border-slate-200">
-                               {/* The actual content is below, we just provide the container here if needed, 
-                                   but actually we'll just let the print-only div flow into here or just below it */}
-                               <p className="text-center text-slate-400 italic text-sm mb-4">Format Laporan (Sesuai Tampilan Cetak)</p>
-                               <div className="border-t border-slate-100 pt-8">
-                                  {/* Content will be shown by the conditional class below */}
-                               </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Printable View (Hidden on Screen unless showPrintPreview) */}
-                      <div className={`${showPrintPreview ? 'block' : 'print-only'} p-8 bg-white text-black font-sans text-[10px] ${showPrintPreview ? 'max-w-[1000px] mx-auto shadow-2xl border border-slate-200 mt-8 mb-12 rounded-sm' : ''}`}>
-                        <div className="text-center mb-6">
-                          <h2 className="text-lg font-bold uppercase underline">Analisis Hasil Evaluasi</h2>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-x-8 mb-6">
-                          <div className="space-y-1">
-                            <div className="flex">
-                              <span className="w-32">Sekolah</span>
-                              <span className="mr-2">:</span>
-                              <span className="font-bold uppercase">{adminSettings.school_name || '-'}</span>
-                            </div>
-                            <div className="flex">
-                              <span className="w-32">Mata Pelajaran</span>
-                              <span className="mr-2">:</span>
-                              <span className="font-bold uppercase">{analysisData?.exam?.subject}</span>
-                            </div>
-                            <div className="flex">
-                              <span className="w-32">Kelas / Semester</span>
-                              <span className="mr-2">:</span>
-                              <span className="font-bold uppercase">{analysisData?.exam?.class}</span>
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex">
-                              <span className="w-32">Tahun Pelajaran</span>
-                              <span className="mr-2">:</span>
-                              <span className="font-bold uppercase">{adminSettings.academic_year || '-'}</span>
-                            </div>
-                            <div className="flex">
-                              <span className="w-32">Banyak soal</span>
-                              <span className="mr-2">:</span>
-                              <span className="font-bold uppercase">{analysisData?.questions.length}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <table className="w-full border-collapse border border-black text-[9px]">
-                          <thead>
-                            <tr>
-                              <th className="border border-black p-1" rowSpan={3}>No</th>
-                              <th className="border border-black p-1 text-left min-w-[120px]" rowSpan={3}>NAMA</th>
-                              <th className="border border-black p-1" colSpan={analysisData?.questions.length}>SKOR YANG DIPEROLEH</th>
-                              <th className="border border-black p-1" rowSpan={2}>JML</th>
-                              <th className="border border-black p-1" rowSpan={2}>%</th>
-                              <th className="border border-black p-1" colSpan={2}>KETUNTASAN</th>
-                              <th className="border border-black p-1" rowSpan={3}>KET</th>
-                            </tr>
-                            <tr>
-                              {analysisData?.questions.map((_, i) => (
-                                <th key={i} className="border border-black p-0.5 w-6" rowSpan={2}>{i + 1}</th>
-                              ))}
-                              <th className="border border-black p-0.5" colSpan={2}>BELAJAR</th>
-                            </tr>
-                            <tr>
-                              <th className="border border-black p-0.5">BENAR</th>
-                              <th className="border border-black p-0.5">CAPAIAN</th>
-                              <th className="border border-black p-0.5">YA</th>
-                              <th className="border border-black p-0.5">TDK</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {analysisData?.submissions.map((s, idx) => {
-                              const totalQuestions = analysisData.questions.length;
-                              const correctCount = s.has_submitted ? s.answers.filter((a: any) => {
-                                const q = analysisData.questions.find(que => que.id === a.question_id);
-                                if (!q) return false;
-                                if (q.type === 'multiple_choice') return a.score > 0;
-                                return (a.score || 0) >= (100 / totalQuestions) * 0.7;
-                              }).length : 0;
-                              
-                              const percentage = s.has_submitted ? ((correctCount / totalQuestions) * 100).toFixed(1) : '0.0';
-                              const isPassed = s.has_submitted && parseFloat(percentage) >= 70;
-                              
-                              return (
-                                <tr key={s.student_id}>
-                                  <td className="border border-black p-1 text-center">{idx + 1}</td>
-                                  <td className="border border-black p-1 uppercase">{s.student_name}</td>
-                                  {analysisData.questions.map(q => {
-                                    if (!s.has_submitted) return <td key={q.id} className="border border-black p-1 text-center">-</td>;
-                                    const ans = s.answers.find((a: any) => a.question_id === q.id);
-                                    const isCorrect = q.type === 'multiple_choice' ? (ans?.score > 0) : ((ans?.score || 0) >= (100 / totalQuestions) * 0.7);
-                                    return (
-                                      <td key={q.id} className="border border-black p-1 text-center">
-                                        {isCorrect ? '1' : '0'}
-                                      </td>
-                                    );
-                                  })}
-                                  <td className="border border-black p-1 text-center font-bold">{s.has_submitted ? correctCount : '-'}</td>
-                                  <td className="border border-black p-1 text-center">{percentage}</td>
-                                  <td className="border border-black p-1 text-center">{isPassed ? '√' : ''}</td>
-                                  <td className="border border-black p-1 text-center">{(s.has_submitted && !isPassed) ? '√' : ''}</td>
-                                  <td className="border border-black p-1 text-center">{s.has_submitted ? '' : 'Belum'}</td>
-                                </tr>
-                              );
-                            })}
-                            <tr key="footer-jumlah" className="font-bold">
-                              <td className="border border-black p-1 text-center" colSpan={2}>Jumlah</td>
-                              {analysisData?.questions.map(q => {
-                                const correctCount = analysisData.submissions.filter(s => {
-                                  if (!s.has_submitted) return false;
-                                  const ans = s.answers.find((a: any) => a.question_id === q.id);
-                                  if (q.type === 'multiple_choice') return ans?.score > 0;
-                                  return (ans?.score || 0) >= (100 / analysisData.questions.length) * 0.7;
-                                }).length;
-                                return (
-                                  <td key={q.id} className="border border-black p-1 text-center">
-                                    {correctCount}
-                                  </td>
-                                );
-                              })}
-                              <td className="border border-black p-1" colSpan={5}></td>
-                            </tr>
-                            <tr key="footer-ketuntasan" className="font-bold">
-                              <td className="border border-black p-1 text-center" colSpan={2}>%Ketuntasan</td>
-                              {analysisData?.questions.map(q => {
-                                const submittedCount = analysisData.submissions.filter(s => s.has_submitted).length;
-                                if (submittedCount === 0) return <td key={q.id} className="border border-black p-1 text-center">0</td>;
-                                const correctCount = analysisData.submissions.filter(s => {
-                                  if (!s.has_submitted) return false;
-                                  const ans = s.answers.find((a: any) => a.question_id === q.id);
-                                  if (q.type === 'multiple_choice') return ans?.score > 0;
-                                  return (ans?.score || 0) >= (100 / analysisData.questions.length) * 0.7;
-                                }).length;
-                                const percentage = ((correctCount / submittedCount) * 100).toFixed(0);
-                                return (
-                                  <td key={q.id} className="border border-black p-1 text-center">
-                                    {percentage}
-                                  </td>
-                                );
-                              })}
-                              <td className="border border-black p-1" colSpan={5}></td>
-                            </tr>
-                          </tbody>
-                        </table>
-
-                        <div className="mt-12 grid grid-cols-2 text-left">
-                          <div className="pl-4">
-                            <p className="mb-1">Mengetahui :</p>
-                            <p className="mb-16">Kepala Sekolah</p>
-                            <p className="font-bold underline uppercase">{adminSettings.principal_name || '(Nama Kepala Sekolah)'}</p>
-                            <p className="font-bold">Nip. {adminSettings.principal_nip || '-'}</p>
-                          </div>
-                          <div className="pl-24">
-                            <p className="mb-1">{adminSettings.city || 'Kota'}, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                            <p className="mb-16">Guru Mapel</p>
-                            <p className="font-bold underline uppercase">{user?.name || '(Nama Guru)'}</p>
-                            <p className="font-bold">Nip. {user?.identifier || '-'}</p>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   )}
+                </div>
+              ) : activeTab === 'monitoring' ? (
+                /* Monitoring Tab */
+                <div className="space-y-6">
+                  {/* List of Exams for Monitoring */}
+                  <div className="grid grid-cols-1 gap-4">
+                    {exams.map((exam, idx) => (
+                      <motion.div
+                        key={exam.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-lg font-bold text-slate-900">{exam.subject}</h4>
+                            <p className="text-xs text-slate-500">Kelas {exam.class}</p>
+                            <div className="mt-2 flex items-center gap-2">
+                              <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                                exam.status === 'active' ? 'bg-emerald-100 text-emerald-600' :
+                                exam.status === 'finished' ? 'bg-slate-100 text-slate-500' :
+                                'bg-amber-100 text-amber-600'
+                              }`}>
+                                {exam.status === 'active' ? 'Sedang Berlangsung' : 
+                                 exam.status === 'finished' ? 'Selesai' : 'Belum Dimulai'}
+                              </span>
+                              {exam.status === 'active' && exam.started_at && (
+                                <ExamTimer startedAt={exam.started_at} />
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            {exam.status !== 'active' && (
+                              <button
+                                onClick={() => updateExamStatus(exam.id, 'active')}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md"
+                              >
+                                Mulai Ujian
+                              </button>
+                            )}
+                            {exam.status === 'active' && (
+                              <button
+                                onClick={() => updateExamStatus(exam.id, 'finished')}
+                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md"
+                              >
+                                Akhiri Ujian
+                              </button>
+                            )}
+                            <button
+                                onClick={() => fetchAnalysis(exam.id)}
+                                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                            >
+                                Monitoring
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Monitoring Table (Only if this exam is selected/expanded) */}
+                        {selectedAnalysisExamId === exam.id && analysisData && (
+                           <div className="mt-6 border-t border-slate-100 pt-6">
+                              <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+                                <div className="p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                                  <div>
+                                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Monitoring Ujian</h3>
+                                    <p className="text-sm text-slate-500 font-medium">{analysisData?.exam?.subject} - Kelas {analysisData?.exam?.class}</p>
+                                  </div>
+                                  <button 
+                                    onClick={() => fetchAnalysis(exam.id)} 
+                                    className="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1"
+                                  >
+                                    <RefreshCw size={14} /> Refresh Data
+                                  </button>
+                                </div>
+                                
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs border-collapse">
+                                    <thead>
+                                      <tr className="bg-slate-100 text-slate-600 font-bold uppercase tracking-widest text-[10px]">
+                                        <th className="px-4 py-3 border border-slate-200 text-center" rowSpan={3}>No</th>
+                                        <th className="px-4 py-3 border border-slate-200 text-left min-w-[150px]" rowSpan={3}>Nama</th>
+                                        <th className="px-4 py-2 border border-slate-200 text-center" colSpan={analysisData?.questions.length}>Skor yang Diperoleh (No Urut Soal)</th>
+                                        <th className="px-4 py-2 border border-slate-200 text-center" rowSpan={2}>Jml</th>
+                                        <th className="px-4 py-2 border border-slate-200 text-center" rowSpan={2}>%</th>
+                                        <th className="px-4 py-2 border border-slate-200 text-center" colSpan={2}>Ketuntasan</th>
+                                        <th className="px-4 py-3 border border-slate-200 text-center" rowSpan={3}>Ket</th>
+                                      </tr>
+                                      <tr className="bg-slate-50 text-slate-500 font-bold text-[9px]">
+                                        {analysisData?.questions.map((_, i) => (
+                                          <th key={i} className="px-2 py-2 border border-slate-200 text-center min-w-[30px]" rowSpan={2}>{i + 1}</th>
+                                        ))}
+                                        <th className="px-2 py-2 border border-slate-200 text-center" colSpan={2}>Belajar</th>
+                                      </tr>
+                                      <tr className="bg-slate-50 text-slate-500 font-bold text-[8px]">
+                                        <th className="px-2 py-1 border border-slate-200 text-center">Benar</th>
+                                        <th className="px-2 py-1 border border-slate-200 text-center">Capaian</th>
+                                        <th className="px-2 py-1 border border-slate-200 text-center">Ya</th>
+                                        <th className="px-2 py-1 border border-slate-200 text-center">Tdk</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {analysisData?.submissions.map((sub, sIdx) => {
+                                        const totalQuestions = analysisData.questions.length;
+                                        const correctCount = sub.has_submitted ? sub.answers.filter((a: any) => {
+                                          const q = analysisData.questions.find(quest => quest.id === a.question_id);
+                                          if (!q) return false;
+                                          if (q.type === 'multiple_choice') return a.score > 0;
+                                          return (a.score || 0) >= (100 / totalQuestions) * 0.7;
+                                        }).length : 0;
+                                        const percentage = sub.has_submitted ? (correctCount / totalQuestions) * 100 : 0;
+                                        const isPassed = sub.has_submitted && percentage >= 70;
+
+                                        return (
+                                          <tr key={sub.student_id} className={`hover:bg-slate-50 transition-colors ${!sub.has_submitted ? 'opacity-60' : ''}`}>
+                                            <td className="px-4 py-3 border border-slate-200 text-center font-mono text-slate-400">{sIdx + 1}</td>
+                                            <td className="px-4 py-3 border border-slate-200 font-bold text-slate-700">
+                                              {sub.student_name}
+                                              {!sub.has_submitted && <span className="ml-2 text-[8px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded uppercase tracking-tighter">Belum Ujian</span>}
+                                            </td>
+                                            {analysisData.questions.map((q) => {
+                                              if (!sub.has_submitted) {
+                                                return <td key={q.id} className="px-2 py-3 border border-slate-200 text-center text-slate-300">-</td>;
+                                              }
+                                              const ans = sub.answers.find((a: any) => a.question_id === q.id);
+                                              const isCorrect = q.type === 'multiple_choice' ? (ans?.score > 0) : ((ans?.score || 0) >= (100 / totalQuestions) * 0.7);
+                                              return (
+                                                <td key={q.id} className={`px-2 py-3 border border-slate-200 text-center font-bold ${isCorrect ? 'text-emerald-600' : 'text-red-400'}`}>
+                                                  {isCorrect ? '1' : '0'}
+                                                </td>
+                                              );
+                                            })}
+                                            <td className="px-4 py-3 border border-slate-200 text-center font-black text-indigo-600">{sub.has_submitted ? correctCount : '-'}</td>
+                                            <td className="px-4 py-3 border border-slate-200 text-center font-bold text-slate-600">{sub.has_submitted ? percentage.toFixed(1) : '-'}</td>
+                                            <td className="px-4 py-3 border border-slate-200 text-center text-emerald-600 font-black">{sub.has_submitted && isPassed ? '√' : ''}</td>
+                                            <td className="px-4 py-3 border border-slate-200 text-center text-red-500 font-black">{sub.has_submitted && !isPassed ? '√' : ''}</td>
+                                            <td className="px-4 py-3 border border-slate-200 text-center text-[10px] text-slate-400">{sub.has_submitted ? '-' : 'Belum'}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                    <tfoot>
+                                      <tr className="bg-slate-50 font-bold">
+                                        <td className="px-4 py-3 border border-slate-200 text-right" colSpan={2}>Jumlah Benar</td>
+                                        {analysisData?.questions.map((q) => {
+                                          const totalCorrect = analysisData.submissions.filter(sub => {
+                                            const ans = sub.answers.find((a: any) => a.question_id === q.id);
+                                            if (q.type === 'multiple_choice') return ans?.score > 0;
+                                            return (ans?.score || 0) >= (100 / analysisData.questions.length) * 0.7;
+                                          }).length;
+                                          return (
+                                            <td key={q.id} className="px-2 py-3 border border-slate-200 text-center text-indigo-600">{totalCorrect}</td>
+                                          );
+                                        })}
+                                        <td className="bg-slate-100 border border-slate-200" colSpan={5}></td>
+                                      </tr>
+                                      <tr className="bg-slate-100 font-bold">
+                                        <td className="px-4 py-3 border border-slate-200 text-right" colSpan={2}>% Ketuntasan</td>
+                                        {analysisData?.questions.map((q) => {
+                                          const totalCorrect = analysisData.submissions.filter(sub => {
+                                            const ans = sub.answers.find((a: any) => a.question_id === q.id);
+                                            if (q.type === 'multiple_choice') return ans?.score > 0;
+                                            return (ans?.score || 0) >= (100 / analysisData.questions.length) * 0.7;
+                                          }).length;
+                                          const percentage = analysisData.submissions.length > 0 ? (totalCorrect / analysisData.submissions.length) * 100 : 0;
+                                          return (
+                                            <td key={q.id} className="px-2 py-3 border border-slate-200 text-center text-emerald-600">{Math.round(percentage)}</td>
+                                          );
+                                        })}
+                                        <td className="bg-slate-200 border border-slate-200" colSpan={5}></td>
+                                      </tr>
+                                    </tfoot>
+                                  </table>
+                                </div>
+                              </div>
+                           </div>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 /* Grades Tab */
