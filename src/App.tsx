@@ -1497,7 +1497,15 @@ export default function App() {
         ></div>
         
         {/* Top Bar Info */}
-        <div className="relative z-10 p-6 flex justify-end items-start">
+        <div className="relative z-10 p-6 flex justify-between items-start">
+          <div className="hidden lg:block">
+            <img 
+              src="https://lh3.googleusercontent.com/d/1bogOVmwNoBbtXh1uTqC7ccDdTRYKw1fd" 
+              alt="PRESISI"
+              className="h-12 w-auto brightness-0 invert opacity-90"
+              referrerPolicy="no-referrer"
+            />
+          </div>
           <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/20">
             <p className="text-white font-black text-[10px] tracking-widest uppercase">Versi 1.0.0</p>
           </div>
@@ -1622,6 +1630,15 @@ export default function App() {
         >
           <ChevronLeft size={18} /> Kembali
         </button>
+
+        <div className="flex justify-center mb-8">
+          <img 
+            src="https://lh3.googleusercontent.com/d/1bogOVmwNoBbtXh1uTqC7ccDdTRYKw1fd" 
+            alt="PRESISI"
+            className="h-16 w-auto object-contain"
+            referrerPolicy="no-referrer"
+          />
+        </div>
         
         <div className="flex items-center gap-5 mb-10">
           <div className={`p-4 rounded-2xl ${
