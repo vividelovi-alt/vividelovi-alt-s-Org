@@ -1,0 +1,21 @@
+{
+  "name": "PRESISI - Sistem Ujian Sekolah",
+  "short_name": "PRESISI",
+  "description": "Sistem Ujian Sekolah yang Presisi dan Akurat",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#002B5B",
+  "icons": [
+    {
+      "src": "https://lh3.googleusercontent.com/d/1bogOVmwNoBbtXh1uTqC7ccDdTRYKw1fd",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://lh3.googleusercontent.com/d/1bogOVmwNoBbtXh1uTqC7ccDdTRYKw1fd",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

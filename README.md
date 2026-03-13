@@ -39,6 +39,26 @@ Aplikasi ini sudah dikonfigurasi untuk Vercel.
    - `SUPABASE_KEY`: (Gunakan **service_role** key untuk akses penuh, atau **anon** key jika RLS aktif)
 4. Simpan dan lakukan **Redeploy**.
 
+## Instalasi
+
+### 1. Instalasi Otomatis (Linux/macOS)
+Gunakan script installer untuk setup cepat:
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+### 2. Instalasi dengan Docker
+Jika Anda memiliki Docker, jalankan:
+```bash
+docker-compose up -d --build
+```
+
+### 3. Instalasi sebagai Aplikasi (PWA)
+Aplikasi ini mendukung PWA. Anda dapat menginstalnya langsung dari browser:
+- **Desktop**: Klik ikon "Install" di address bar browser (Chrome/Edge).
+- **Mobile**: Pilih "Add to Home Screen" dari menu browser.
+
 ## Cara Menjalankan Lokal
 1. Clone repository.
 2. Jalankan `npm install`.
