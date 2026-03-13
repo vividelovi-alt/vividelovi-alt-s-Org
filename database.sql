@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS exams (
     teacher_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     subject TEXT NOT NULL,
     class TEXT REFERENCES classes(name) ON UPDATE CASCADE,
+    status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'finished')),
+    started_at TIMESTAMPTZ,
+    ended_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -38,6 +41,7 @@ CREATE TABLE IF NOT EXISTS questions (
     option_b TEXT,
     option_c TEXT,
     option_d TEXT,
+    option_e TEXT,
     correct_answer TEXT, -- A, B, C, atau D
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -84,3 +88,19 @@ ALTER TABLE exams DISABLE ROW LEVEL SECURITY;
 ALTER TABLE questions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE submissions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE answers DISABLE ROW LEVEL SECURITY;
+
+-- Migration: Add status columns to exams if they don't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'exams' AND column_name = 'status') THEN
+        ALTER TABLE exams ADD COLUMN status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'finished'));
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'exams' AND column_name = 'started_at') THEN
+        ALTER TABLE exams ADD COLUMN started_at TIMESTAMPTZ;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'exams' AND column_name = 'ended_at') THEN
+        ALTER TABLE exams ADD COLUMN ended_at TIMESTAMPTZ;
+    END IF;
+END $$;
