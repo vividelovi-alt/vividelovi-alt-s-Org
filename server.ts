@@ -233,16 +233,21 @@ app.get("/api/exams", asyncHandler(async (req, res) => {
       query = query.not('id', 'in', `(${submittedExamIds.join(',')})`);
     }
 
-    // Only show active exams to students
-    // query = query.eq('status', 'active');
-    // User request: Show all exams, but disable button if not active. 
-    // We might still want to hide 'finished' exams if they are done? 
-    // But for now let's show all non-submitted exams as requested "selalu tampil jika ada".
-    // Actually, maybe we should filter out 'finished' if the teacher ended it?
-    // But the user only mentioned "if teacher hasn't clicked Start".
-    // Let's just remove the filter for now.
-    
     const { data: exams } = await query;
+    
+    const formattedExams = exams?.map(e => ({
+      ...e,
+      teacher_name: (e.users as any)?.name
+    })) || [];
+
+    res.json(formattedExams);
+  } else {
+    // Public/All exams for landing page
+    const { data: exams } = await supabase
+      .from('exams')
+      .select('*, users!exams_teacher_id_fkey(name)')
+      .order('created_at', { ascending: false })
+      .limit(5);
     
     const formattedExams = exams?.map(e => ({
       ...e,

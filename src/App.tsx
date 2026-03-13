@@ -170,6 +170,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [exams, setExams] = useState<Exam[]>([]);
+  const [publicExams, setPublicExams] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [activeExam, setActiveExam] = useState<Exam | null>(null);
   const [activeSubmission, setActiveSubmission] = useState<{ submission: Submission, answers: AnswerDetail[] } | null>(null);
@@ -269,15 +270,19 @@ export default function App() {
       if (method === 'GET') {
         const exams = getStorage('exams');
         const users = getStorage('users');
-        const { role, userId, studentClass } = Object.fromEntries(new URLSearchParams(url.split('?')[1]));
+        const queryParams = Object.fromEntries(new URLSearchParams(url.split('?')[1]));
+        const { role, userId, studentClass } = queryParams;
         
         if (role === 'teacher') {
           return { data: exams.filter((e: any) => e.teacher_id === parseInt(userId)), ok: true, status: 200 };
-        } else {
+        } else if (role === 'student') {
           const submissions = getStorage('submissions');
           const submittedExamIds = submissions.filter((s: any) => s.student_id === parseInt(userId)).map((s: any) => s.exam_id);
           const availableExams = exams.filter((e: any) => e.class === studentClass && !submittedExamIds.includes(e.id));
           return { data: availableExams.map((e: any) => ({ ...e, teacher_name: users.find((u: any) => u.id === e.teacher_id)?.name })), ok: true, status: 200 };
+        } else {
+          // Public exams
+          return { data: exams.slice(0, 5).map((e: any) => ({ ...e, teacher_name: users.find((u: any) => u.id === e.teacher_id)?.name })), ok: true, status: 200 };
         }
       }
       if (method === 'POST') {
@@ -470,6 +475,21 @@ export default function App() {
       fetchAdminData();
     }
   }, [user, selectedClassFilter]);
+
+  useEffect(() => {
+    if (view === 'landing') {
+      fetchPublicExams();
+    }
+  }, [view]);
+
+  const fetchPublicExams = async () => {
+    try {
+      const { data, ok } = await safeFetch('/api/exams');
+      if (ok) setPublicExams(data || []);
+    } catch (err) {
+      console.error("Failed to fetch public exams", err);
+    }
+  };
 
   const fetchClasses = async () => {
     try {
@@ -1505,44 +1525,44 @@ export default function App() {
         {/* Menu Section */}
         <div className="mb-10">
           <h3 className="text-[#002B5B] font-black text-lg mb-6 tracking-tight">Pilih Akses</h3>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-6">
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => { setRole('student'); setView('login'); }}
-              className="flex flex-col items-center gap-3"
+              className="flex flex-col items-center gap-3 group"
             >
-              <div className="w-16 h-16 bg-white rounded-2xl shadow-md border border-slate-100 flex items-center justify-center group hover:bg-blue-50 transition-colors">
-                <div className="w-12 h-12 bg-[#F59E0B]/10 rounded-full flex items-center justify-center">
-                  <GraduationCap className="text-[#F59E0B] w-7 h-7" />
+              <div className="w-20 h-20 bg-white rounded-3xl shadow-lg border border-slate-100 flex items-center justify-center group-hover:border-blue-200 group-hover:shadow-blue-900/5 transition-all duration-300">
+                <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                  <GraduationCap className="text-blue-600 w-8 h-8" />
                 </div>
               </div>
-              <span className="text-[10px] font-black text-[#002B5B] uppercase tracking-tighter text-center">Siswa</span>
+              <span className="text-xs font-black text-[#002B5B] uppercase tracking-tight text-center">Siswa</span>
             </motion.button>
 
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => { setRole('teacher'); setView('login'); }}
-              className="flex flex-col items-center gap-3"
+              className="flex flex-col items-center gap-3 group"
             >
-              <div className="w-16 h-16 bg-white rounded-2xl shadow-md border border-slate-100 flex items-center justify-center group hover:bg-amber-50 transition-colors">
-                <div className="w-12 h-12 bg-[#F59E0B]/10 rounded-full flex items-center justify-center">
-                  <User className="text-[#F59E0B] w-7 h-7" />
+              <div className="w-20 h-20 bg-white rounded-3xl shadow-lg border border-slate-100 flex items-center justify-center group-hover:border-amber-200 group-hover:shadow-amber-900/5 transition-all duration-300">
+                <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                  <User className="text-amber-600 w-8 h-8" />
                 </div>
               </div>
-              <span className="text-[10px] font-black text-[#002B5B] uppercase tracking-tighter text-center">Guru</span>
+              <span className="text-xs font-black text-[#002B5B] uppercase tracking-tight text-center">Guru</span>
             </motion.button>
 
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => { setRole('admin'); setView('login'); }}
-              className="flex flex-col items-center gap-3"
+              className="flex flex-col items-center gap-3 group"
             >
-              <div className="w-16 h-16 bg-white rounded-2xl shadow-md border border-slate-100 flex items-center justify-center group hover:bg-slate-50 transition-colors">
-                <div className="w-12 h-12 bg-[#F59E0B]/10 rounded-full flex items-center justify-center">
-                  <ShieldCheck className="text-[#F59E0B] w-7 h-7" />
+              <div className="w-20 h-20 bg-white rounded-3xl shadow-lg border border-slate-100 flex items-center justify-center group-hover:border-emerald-200 group-hover:shadow-emerald-900/5 transition-all duration-300">
+                <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                  <ShieldCheck className="text-emerald-600 w-8 h-8" />
                 </div>
               </div>
-              <span className="text-[10px] font-black text-[#002B5B] uppercase tracking-tighter text-center">Admin</span>
+              <span className="text-xs font-black text-[#002B5B] uppercase tracking-tight text-center">Admin</span>
             </motion.button>
           </div>
         </div>
@@ -1555,25 +1575,30 @@ export default function App() {
           </div>
           
           <div className="space-y-4">
-            {[
-              { exam: 'Ujian Tengah Semester', class: 'Kelas X - IPA 1', date: '15 Maret 2026', icon: <FileText className="text-[#F59E0B] w-6 h-6" /> },
-              { exam: 'Try Out Nasional', class: 'Kelas XII - IPS 2', date: '20 Maret 2026', icon: <Award className="text-[#F59E0B] w-6 h-6" /> },
-              { exam: 'Ujian Akhir Semester', class: 'Kelas XI - IPA 3', date: '25 Maret 2026', icon: <ClipboardList className="text-[#F59E0B] w-6 h-6" /> }
-            ].map((item, idx) => (
-              <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-                <div className="w-14 h-14 bg-[#F59E0B]/10 rounded-2xl flex items-center justify-center shrink-0">
-                  {item.icon}
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-[#002B5B] font-bold text-sm mb-1">{item.exam}</h4>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.class}</span>
-                    <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.date}</span>
+            {publicExams.length > 0 ? (
+              publicExams.map((item, idx) => (
+                <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                  <div className="w-14 h-14 bg-[#F59E0B]/10 rounded-2xl flex items-center justify-center shrink-0">
+                    <FileText className="text-[#F59E0B] w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start mb-1">
+                      <h4 className="text-[#002B5B] font-bold text-sm">{item.subject}</h4>
+                      <span className="text-[9px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">{item.teacher_name}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kelas {item.class}</span>
+                      <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{new Date(item.created_at).toLocaleDateString('id-ID')}</span>
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="bg-white p-8 rounded-2xl border border-dashed border-slate-200 text-center">
+                <p className="text-slate-400 text-sm italic">Belum ada informasi ujian terbaru.</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
