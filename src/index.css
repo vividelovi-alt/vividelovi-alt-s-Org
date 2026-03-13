@@ -72,6 +72,13 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    overscroll-behavior-y: contain;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  input, textarea, [contenteditable="true"] {
+    user-select: text;
   }
 }
 
