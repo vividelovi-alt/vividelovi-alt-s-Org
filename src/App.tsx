@@ -42,6 +42,11 @@ import {
   AlertCircle,
   Printer,
   Timer,
+  Calendar,
+  ArrowRight,
+  ChevronDown,
+  Info,
+  Clock,
 } from 'lucide-react';
 
 // --- Types ---
@@ -185,6 +190,56 @@ export default function App() {
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallButton, setShowInstallButton] = useState(false);
+  const [currentDateTime, setCurrentDateTime] = useState<Date>(new Date());
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showExamListModal, setShowExamListModal] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentDateTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatHeaderDateTime = (date: Date) => {
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const day = days[date.getDay()];
+    const dateNum = String(date.getDate()).padStart(2, '0');
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}, ${dateNum} ${month} ${year} | ${hours}:${minutes} WIB`;
+  };
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallButton(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      console.log('User accepted the install prompt');
+    }
+    setDeferredPrompt(null);
+    setShowInstallButton(false);
+  };
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now();
@@ -1487,129 +1542,442 @@ export default function App() {
   );
 
   const renderLanding = () => (
-    <div className="min-h-screen bg-slate-50 flex flex-col relative overflow-hidden font-sans">
-      {/* Header Section */}
-      <div className="relative h-[240px] bg-[#002B5B] z-10">
-        {/* Diagonal Yellow Accent */}
-        <div 
-          className="absolute top-0 right-0 w-[70%] h-full bg-[#F59E0B] z-0 overflow-hidden"
-          style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 0)' }}
-        ></div>
-        
-        {/* Top Bar Info */}
-        <div className="relative z-10 p-6 flex justify-between items-start">
-          <div className="hidden lg:block">
-            <img 
-              src="https://lh3.googleusercontent.com/d/1bogOVmwNoBbtXh1uTqC7ccDdTRYKw1fd" 
-              alt="PRESISI"
-              className="h-12 w-auto brightness-0 invert opacity-90"
-              referrerPolicy="no-referrer"
-            />
+    <div className="min-h-screen bg-[#F0F5FA] dark:bg-slate-950 flex flex-col font-sans transition-colors duration-200">
+      {/* 1. TOP HEADER / NAVBAR (Exact match with reference image) */}
+      <header className="w-full bg-gradient-to-r from-[#002244] via-[#002B5B] to-[#0047AB] text-white py-3.5 px-4 md:px-8 lg:px-12 shadow-lg relative z-40 border-b border-blue-400/20">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          {/* Left: PRESISI Logo & Kemendikbud lockups */}
+          <div className="flex items-center gap-3 md:gap-5">
+            {/* PRESISI Brand Lockup */}
+            <div className="flex items-center gap-2.5">
+              <img 
+                src="/assets/presisi_header_logo.png" 
+                alt="PRESISI - Penilaian Tepat dan Akurat"
+                className="h-8 md:h-10 w-auto object-contain select-none pointer-events-none"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+
+            {/* Vertical White Divider */}
+            <div className="h-8 md:h-9 w-px bg-white/20"></div>
+
+            {/* Kemendikbud "Tut Wuri Handayani" lockup */}
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 md:w-9 md:h-9 shrink-0 flex items-center justify-center">
+                <img 
+                  src="/assets/tut_wuri_handayani.png" 
+                  alt="Tut Wuri Handayani"
+                  className="w-full h-full object-contain drop-shadow select-none pointer-events-none"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div className="hidden sm:block leading-tight">
+                <p className="text-[11px] md:text-xs font-bold text-white tracking-tight">Pendidikan</p>
+                <p className="text-[10px] md:text-[11px] font-semibold text-blue-100 tracking-tight">untuk Negeri</p>
+              </div>
+            </div>
           </div>
-          <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/20">
-            <p className="text-white font-black text-[10px] tracking-widest uppercase">Versi 1.0.0</p>
+
+          {/* Right: Live Date Time Pill & User Dropdown */}
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Live Date Time WIB Pill */}
+            <div className="hidden lg:flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/15 text-white text-xs font-semibold shadow-inner">
+              <Calendar className="w-3.5 h-3.5 text-blue-200" />
+              <span>{formatHeaderDateTime(currentDateTime)}</span>
+            </div>
+
+            {/* User Dropdown */}
+            <div className="relative">
+              <button 
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/15 active:bg-white/20 transition-all backdrop-blur-md px-3.5 py-1.5 md:py-2 rounded-full border border-white/20 text-white text-xs md:text-sm font-bold shadow-sm"
+              >
+                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                  <User className="w-3.5 h-3.5 text-white" />
+                </div>
+                <span>Pengguna</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-blue-200 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* User Dropdown Popover */}
+              <AnimatePresence>
+                {userMenuOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setUserMenuOpen(false)} 
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                      className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 p-2 z-50 text-slate-800 dark:text-slate-200"
+                    >
+                      <div className="p-3 border-b border-slate-100 dark:border-slate-700/60 mb-1">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Status Akses</p>
+                        <p className="font-bold text-sm text-[#002B5B] dark:text-white">Tamu (Belum Masuk)</p>
+                      </div>
+                      <div className="py-1">
+                        <button 
+                          onClick={() => { setUserMenuOpen(false); setRole('student'); setView('login'); }}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-xl hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-200"
+                        >
+                          <GraduationCap className="w-4 h-4 text-blue-600" />
+                          <span>Masuk sebagai Siswa</span>
+                        </button>
+                        <button 
+                          onClick={() => { setUserMenuOpen(false); setRole('teacher'); setView('login'); }}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-xl hover:bg-amber-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-200"
+                        >
+                          <User className="w-4 h-4 text-amber-600" />
+                          <span>Masuk sebagai Guru</span>
+                        </button>
+                        <button 
+                          onClick={() => { setUserMenuOpen(false); setRole('admin'); setView('login'); }}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-xl hover:bg-emerald-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-200"
+                        >
+                          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                          <span>Masuk sebagai Admin</span>
+                        </button>
+                      </div>
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60">
+                        <button 
+                          onClick={() => {
+                            const newTheme = theme === 'dark' ? 'light' : 'dark';
+                            setTheme(newTheme);
+                            setUserMenuOpen(false);
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
+                        >
+                          <span className="flex items-center gap-2">
+                            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-slate-500" />}
+                            Mode {theme === 'dark' ? 'Terang' : 'Gelap'}
+                          </span>
+                        </button>
+                        {showInstallButton && (
+                          <button 
+                            onClick={() => { setUserMenuOpen(false); handleInstallClick(); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 mt-1"
+                          >
+                            <Download className="w-4 h-4" />
+                            <span>Instal Aplikasi</span>
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
+      </header>
 
-        {/* Logo Card - Floating */}
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-[-60px] w-[90%] max-w-md z-50">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+      {/* 2. MAIN BODY CONTENT */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 md:px-8 lg:px-12 py-6 md:py-8 flex flex-col gap-6">
+        {/* PWA Floating Install Notice (If available) */}
+        {showInstallButton && (
+          <motion.div 
+            initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-[2.5rem] p-8 shadow-2xl shadow-black/20 border border-slate-100 flex flex-col items-center"
+            className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg shadow-blue-900/15 text-white flex items-center justify-between gap-4"
           >
-            <img 
-              src="https://lh3.googleusercontent.com/d/1bogOVmwNoBbtXh1uTqC7ccDdTRYKw1fd" 
-              alt="PRESISI"
-              className="w-full h-auto max-h-[140px] object-contain"
-              referrerPolicy="no-referrer"
-            />
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-white/20 rounded-xl">
+                <Download className="text-white w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-bold text-sm">Instal PRESISI sebagai Aplikasi Desktop / Ponsel</p>
+                <p className="text-blue-100 text-xs">Jalankan langsung dari beranda/desktop tanpa address bar browser</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button 
+                onClick={handleInstallClick}
+                className="px-4 py-2 bg-white text-blue-600 hover:bg-blue-50 rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-sm"
+              >
+                Instal Sekarang
+              </button>
+              <button 
+                onClick={() => setShowInstallButton(false)}
+                className="p-1.5 text-white/70 hover:text-white rounded-lg transition-colors"
+                aria-label="Tutup"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </motion.div>
-        </div>
-      </div>
+        )}
 
-      {/* Content Section */}
-      <div className="flex-1 pt-20 px-6 pb-10">
-        {/* Menu Section */}
-        <div className="mb-10">
-          <h3 className="text-[#002B5B] font-black text-lg mb-6 tracking-tight">Pilih Akses</h3>
-          <div className="grid grid-cols-3 gap-6">
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => { setRole('student'); setView('login'); }}
-              className="flex flex-col items-center gap-3 group"
+        {/* HERO BANNER SECTION (Clean, Dedicated Banner with Vector-Scaled Text) */}
+        <div className="w-full rounded-2xl md:rounded-[2rem] overflow-hidden shadow-xl border border-blue-100/80 dark:border-slate-800 bg-white dark:bg-slate-900 relative">
+          <svg viewBox="0 0 1847 294" className="w-full h-auto block select-none pointer-events-none" preserveAspectRatio="xMidYMid meet">
+            <image href="/assets/hero_banner.png" width="1847" height="294" />
+            <text 
+              x="222" 
+              y="230" 
+              fontFamily="'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif" 
+              fontSize="21" 
+              fontWeight="900" 
+              fontStyle="italic" 
+              letterSpacing="0.2"
+              fill="#002B5B"
             >
-              <div className="w-20 h-20 bg-white rounded-3xl shadow-lg border border-slate-100 flex items-center justify-center group-hover:border-blue-200 group-hover:shadow-blue-900/5 transition-all duration-300">
-                <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                  <GraduationCap className="text-blue-600 w-8 h-8" />
-                </div>
-              </div>
-              <span className="text-xs font-black text-[#002B5B] uppercase tracking-tight text-center">Siswa</span>
-            </motion.button>
-
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => { setRole('teacher'); setView('login'); }}
-              className="flex flex-col items-center gap-3 group"
-            >
-              <div className="w-20 h-20 bg-white rounded-3xl shadow-lg border border-slate-100 flex items-center justify-center group-hover:border-amber-200 group-hover:shadow-amber-900/5 transition-all duration-300">
-                <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center group-hover:bg-amber-100 transition-colors">
-                  <User className="text-amber-600 w-8 h-8" />
-                </div>
-              </div>
-              <span className="text-xs font-black text-[#002B5B] uppercase tracking-tight text-center">Guru</span>
-            </motion.button>
-
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => { setRole('admin'); setView('login'); }}
-              className="flex flex-col items-center gap-3 group"
-            >
-              <div className="w-20 h-20 bg-white rounded-3xl shadow-lg border border-slate-100 flex items-center justify-center group-hover:border-emerald-200 group-hover:shadow-emerald-900/5 transition-all duration-300">
-                <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
-                  <ShieldCheck className="text-emerald-600 w-8 h-8" />
-                </div>
-              </div>
-              <span className="text-xs font-black text-[#002B5B] uppercase tracking-tight text-center">Admin</span>
-            </motion.button>
-          </div>
+              Platform Rekap Sistem Penilaian dan Evaluasi
+            </text>
+          </svg>
         </div>
 
-        {/* Info Section (Like List Permintaan) */}
+        {/* 3. "PILIH AKSES" SECTION */}
         <div>
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[#002B5B] font-black text-lg tracking-tight">Informasi Ujian</h3>
-            <button className="text-red-500 text-xs font-bold">Lihat Semua</button>
+          {/* Section Header with Blue Vertical Pill Accent */}
+          <div className="flex items-center gap-2.5 mb-5">
+            <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
+            <h2 className="text-xl md:text-2xl font-black text-[#002B5B] dark:text-white tracking-tight">Pilih Akses</h2>
           </div>
-          
-          <div className="space-y-4">
-            {publicExams.length > 0 ? (
-              publicExams.map((item, idx) => (
-                <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-                  <div className="w-14 h-14 bg-[#F59E0B]/10 rounded-2xl flex items-center justify-center shrink-0">
-                    <FileText className="text-[#F59E0B] w-6 h-6" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className="text-[#002B5B] font-bold text-sm">{item.subject}</h4>
-                      <span className="text-[9px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">{item.teacher_name}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kelas {item.class}</span>
-                      <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{new Date(item.created_at).toLocaleDateString('id-ID')}</span>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="bg-white p-8 rounded-2xl border border-dashed border-slate-200 text-center">
-                <p className="text-slate-400 text-sm italic">Belum ada informasi ujian terbaru.</p>
+
+          {/* Three Access Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* CARD 1: SISWA */}
+            <motion.div
+              whileHover={{ y: -4 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { setRole('student'); setView('login'); }}
+              className="bg-white dark:bg-slate-800 rounded-[1.75rem] p-6 shadow-md hover:shadow-xl border border-slate-100 dark:border-slate-700/60 relative overflow-hidden flex items-center justify-between cursor-pointer group transition-all duration-300"
+            >
+              {/* Dot Matrix Pattern at top right */}
+              <div className="absolute top-4 right-4 grid grid-cols-4 gap-1.5 opacity-30 pointer-events-none">
+                {[...Array(12)].map((_, i) => (
+                  <span key={i} className="w-1 h-1 rounded-full bg-blue-500"></span>
+                ))}
               </div>
-            )}
+
+              {/* Dynamic Blue Bottom Wave Ribbon */}
+              <div className="absolute -bottom-1 left-0 right-0 h-8 overflow-hidden pointer-events-none">
+                <svg viewBox="0 0 400 35" className="w-full h-full" preserveAspectRatio="none">
+                  <path d="M0,20 C100,35 200,5 300,22 C350,30 380,15 400,25 L400,35 L0,35 Z" fill="#38BDF8" opacity="0.4" />
+                  <path d="M0,25 C120,10 220,32 320,15 C360,8 385,22 400,18 L400,35 L0,35 Z" fill="#0284C7" />
+                </svg>
+              </div>
+
+              {/* Left Icon Container */}
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-sky-50 dark:from-blue-950 dark:to-blue-900/50 border border-blue-200/80 dark:border-blue-800 flex items-center justify-center shadow-inner shrink-0 group-hover:scale-105 transition-transform">
+                  <GraduationCap className="w-8 h-8 text-[#0284C7]" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-[#002B5B] dark:text-white tracking-tight">SISWA</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Akses untuk Siswa / Peserta Ujian</p>
+                </div>
+              </div>
+
+              {/* Right Action Button */}
+              <div className="relative z-10 w-11 h-11 rounded-full bg-[#0284C7] group-hover:bg-[#0369A1] text-white flex items-center justify-center shadow-md shadow-blue-500/30 group-hover:scale-110 transition-all shrink-0">
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </motion.div>
+
+            {/* CARD 2: GURU */}
+            <motion.div
+              whileHover={{ y: -4 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { setRole('teacher'); setView('login'); }}
+              className="bg-white dark:bg-slate-800 rounded-[1.75rem] p-6 shadow-md hover:shadow-xl border border-slate-100 dark:border-slate-700/60 relative overflow-hidden flex items-center justify-between cursor-pointer group transition-all duration-300"
+            >
+              {/* Dot Matrix Pattern at top right */}
+              <div className="absolute top-4 right-4 grid grid-cols-4 gap-1.5 opacity-30 pointer-events-none">
+                {[...Array(12)].map((_, i) => (
+                  <span key={i} className="w-1 h-1 rounded-full bg-amber-500"></span>
+                ))}
+              </div>
+
+              {/* Dynamic Amber/Orange Bottom Wave Ribbon */}
+              <div className="absolute -bottom-1 left-0 right-0 h-8 overflow-hidden pointer-events-none">
+                <svg viewBox="0 0 400 35" className="w-full h-full" preserveAspectRatio="none">
+                  <path d="M0,20 C100,35 200,5 300,22 C350,30 380,15 400,25 L400,35 L0,35 Z" fill="#FDE68A" opacity="0.5" />
+                  <path d="M0,25 C120,10 220,32 320,15 C360,8 385,22 400,18 L400,35 L0,35 Z" fill="#F59E0B" />
+                </svg>
+              </div>
+
+              {/* Left Icon Container */}
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-100 to-yellow-50 dark:from-amber-950 dark:to-amber-900/50 border border-amber-200/80 dark:border-amber-800 flex items-center justify-center shadow-inner shrink-0 group-hover:scale-105 transition-transform">
+                  <svg className="w-8 h-8 text-[#D97706]" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="7" cy="6" r="3" />
+                    <path d="M7 11c-2.5 0-4.5 1.5-4.5 3.5V17h9v-2.5c0-2-2-3.5-4.5-3.5z" />
+                    <path d="M12 3h9v8h-9z" fillOpacity="0.8" />
+                    <path d="M16 11v7M14 18h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <path d="M9 13l4-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-[#002B5B] dark:text-white tracking-tight">GURU</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Akses untuk Guru / Penilai</p>
+                </div>
+              </div>
+
+              {/* Right Action Button */}
+              <div className="relative z-10 w-11 h-11 rounded-full bg-[#F59E0B] group-hover:bg-[#D97706] text-white flex items-center justify-center shadow-md shadow-amber-500/30 group-hover:scale-110 transition-all shrink-0">
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </motion.div>
+
+            {/* CARD 3: ADMIN */}
+            <motion.div
+              whileHover={{ y: -4 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { setRole('admin'); setView('login'); }}
+              className="bg-white dark:bg-slate-800 rounded-[1.75rem] p-6 shadow-md hover:shadow-xl border border-slate-100 dark:border-slate-700/60 relative overflow-hidden flex items-center justify-between cursor-pointer group transition-all duration-300"
+            >
+              {/* Dot Matrix Pattern at top right */}
+              <div className="absolute top-4 right-4 grid grid-cols-4 gap-1.5 opacity-30 pointer-events-none">
+                {[...Array(12)].map((_, i) => (
+                  <span key={i} className="w-1 h-1 rounded-full bg-emerald-500"></span>
+                ))}
+              </div>
+
+              {/* Dynamic Emerald Bottom Wave Ribbon */}
+              <div className="absolute -bottom-1 left-0 right-0 h-8 overflow-hidden pointer-events-none">
+                <svg viewBox="0 0 400 35" className="w-full h-full" preserveAspectRatio="none">
+                  <path d="M0,20 C100,35 200,5 300,22 C350,30 380,15 400,25 L400,35 L0,35 Z" fill="#A7F3D0" opacity="0.5" />
+                  <path d="M0,25 C120,10 220,32 320,15 C360,8 385,22 400,18 L400,35 L0,35 Z" fill="#10B981" />
+                </svg>
+              </div>
+
+              {/* Left Icon Container */}
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-green-50 dark:from-emerald-950 dark:to-emerald-900/50 border border-emerald-200/80 dark:border-emerald-800 flex items-center justify-center shadow-inner shrink-0 group-hover:scale-105 transition-transform">
+                  <ShieldCheck className="w-8 h-8 text-[#10B981]" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-[#002B5B] dark:text-white tracking-tight">ADMIN</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Akses untuk Administrator</p>
+                </div>
+              </div>
+
+              {/* Right Action Button */}
+              <div className="relative z-10 w-11 h-11 rounded-full bg-[#10B981] group-hover:bg-[#059669] text-white flex items-center justify-center shadow-md shadow-emerald-500/30 group-hover:scale-110 transition-all shrink-0">
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </motion.div>
           </div>
         </div>
-      </div>
+
+        {/* 4. "INFORMASI UJIAN" & STATUS BAR */}
+        <div className="bg-white dark:bg-slate-800 rounded-[1.75rem] p-5 md:p-6 shadow-sm border border-slate-100 dark:border-slate-700/60">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            {/* Left Info: Icon & Message */}
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-full bg-[#0284C7] text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+                <Info className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base md:text-lg font-black text-[#002B5B] dark:text-white tracking-tight">Informasi Ujian</h3>
+                  {publicExams.length > 0 && (
+                    <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-full text-[10px] font-bold">
+                      {publicExams.length} Ujian Aktif
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400">Pastikan koneksi internet Anda stabil sebelum memulai ujian.</p>
+              </div>
+            </div>
+
+            {/* Right Status Indicators */}
+            <div className="flex flex-wrap items-center gap-3 md:gap-5 text-xs md:text-sm self-stretch lg:self-auto justify-between lg:justify-end border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-100 dark:border-slate-700">
+              {/* Server Online Status */}
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${dbStatus === 'online' ? 'bg-emerald-400' : dbStatus === 'demo' ? 'bg-amber-400' : 'bg-red-400'}`}></span>
+                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${dbStatus === 'online' ? 'bg-emerald-500' : dbStatus === 'demo' ? 'bg-amber-500' : 'bg-red-500'}`}></span>
+                </span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                  {dbStatus === 'online' ? 'Server Online' : dbStatus === 'demo' ? 'Mode Demo' : 'Offline'}
+                </span>
+              </div>
+
+              <div className="hidden md:block h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
+
+              {/* Trust Badge */}
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#0284C7]" />
+                <span className="font-semibold text-slate-700 dark:text-slate-300">Aplikasi Aman & Terpercaya</span>
+              </div>
+
+              {/* Exam List Expand Toggle (if exams available) */}
+              {publicExams.length > 0 && (
+                <>
+                  <div className="hidden md:block h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
+                  <button 
+                    onClick={() => setShowExamListModal(!showExamListModal)}
+                    className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    <span>{showExamListModal ? 'Tutup Daftar' : 'Lihat Jadwal Ujian'}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showExamListModal ? 'rotate-180' : ''}`} />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Expandable Active Exam List (Preserving Previous Turn Feature) */}
+          {publicExams.length > 0 && showExamListModal && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700/60"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {publicExams.map((item, idx) => (
+                  <div key={idx} className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-700 flex items-center justify-between gap-3 hover:border-blue-200 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-xs text-[#002B5B] dark:text-white line-clamp-1">{item.subject}</p>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          <span>Kelas {item.class}</span>
+                          <span>•</span>
+                          <span>{item.teacher_name}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => { setRole('student'); setView('login'); }}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-bold shrink-0 transition-colors shadow-sm"
+                    >
+                      Mulai
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </main>
+
+      {/* 5. FOOTER SECTION (Exact match with reference image) */}
+      <footer className="w-full bg-[#002B5B] text-white py-4 px-6 md:px-12 mt-auto relative overflow-hidden">
+        {/* Subtle Open Book Watermark in Background */}
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-[-10px] opacity-10 pointer-events-none">
+          <svg viewBox="0 0 100 60" className="w-48 h-28 text-white fill-current">
+            <path d="M10 40 C30 35, 45 38, 50 48 C55 38, 70 35, 90 40 L90 55 C70 50, 55 52, 50 58 C45 52, 30 50, 10 55 Z" />
+          </svg>
+        </div>
+
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 relative z-10 text-xs md:text-sm">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="w-4 h-4 text-blue-300" />
+            <span className="font-medium text-blue-100">© 2025 PRESISI. All Rights Reserved.</span>
+          </div>
+          <p className="font-medium italic text-blue-200 tracking-wide text-center sm:text-right">
+            Bersama Membangun Pendidikan yang Lebih Baik
+          </p>
+        </div>
+      </footer>
     </div>
   );
 
@@ -1642,9 +2010,9 @@ export default function App() {
         
         <div className="flex items-center gap-5 mb-10">
           <div className={`p-4 rounded-2xl ${
-            role === 'student' ? 'bg-blue-50 text-blue-600' : 
-            role === 'teacher' ? 'bg-amber-50 text-amber-600' : 
-            'bg-slate-100 text-slate-600'
+            role === 'student' ? 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' : 
+            role === 'teacher' ? 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400' : 
+            'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400'
           }`}>
             {role === 'student' ? <GraduationCap size={32} /> : 
              role === 'teacher' ? <User size={32} /> : 
@@ -1655,7 +2023,7 @@ export default function App() {
               Log In
             </h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm font-bold uppercase tracking-wider">
-              {role === 'student' ? 'Siswa' : role === 'teacher' ? 'Guru' : 'Admin'}
+              {role === 'student' ? 'Peserta (Siswa)' : role === 'teacher' ? 'Guru (Penilai)' : 'Administrator'}
             </p>
           </div>
         </div>
