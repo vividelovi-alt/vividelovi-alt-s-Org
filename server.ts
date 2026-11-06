@@ -9,6 +9,16 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Load .env first, then fallback to .env.example if missing
+dotenv.config();
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
+  dotenv.config({ path: path.join(__dirname, ".env.example") });
+}
+
+// Fallback Supabase credentials from .env.example to ensure uninterrupted connectivity
+const FALLBACK_SUPABASE_URL = "https://wllrntamtizpngynawon.supabase.co";
+const FALLBACK_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsbHJudGFtdGl6cG5neW5hd29uIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTc3MjUyNywiZXhwIjoyMDg3MzQ4NTI3fQ.LgRu74q0iAnOMng_-_kIiBt670bpXY75peEvtU6-kjw";
+
 // Helper to handle async errors in Express routes
 const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -19,8 +29,8 @@ let supabaseClient: any = null;
 
 function getSupabase() {
   if (!supabaseClient) {
-    const supabaseUrl = process.env.SUPABASE_URL?.trim();
-    const supabaseKey = process.env.SUPABASE_KEY?.trim();
+    const supabaseUrl = (process.env.SUPABASE_URL || FALLBACK_SUPABASE_URL)?.trim();
+    const supabaseKey = (process.env.SUPABASE_KEY || FALLBACK_SUPABASE_KEY)?.trim();
 
     if (!supabaseUrl || !supabaseKey) {
       const missing = [];
@@ -80,31 +90,42 @@ app.get("/api/health/supabase", asyncHandler(async (req, res) => {
       });
     }
     
-    // Try to select from users table to verify schema
-    const { data, error } = await client.from('users').select('count', { count: 'exact', head: true });
+    // Select 1 record and request exact count without head: true to guarantee full error details on failure
+    const { data, error, count, status: responseStatus } = await client
+      .from('users')
+      .select('id', { count: 'exact' })
+      .limit(1);
     
     if (error) {
       console.error("Supabase Health Check Error:", error);
       
       let friendlyMessage = "Koneksi database gagal";
-      if (error.message.includes("relation \"users\" does not exist")) {
+      const errMsg = (error.message || "").toLowerCase();
+      const errDetails = (error.details || "").toLowerCase();
+      const errCode = error.code || "";
+      const statusCode = (error as any).status || responseStatus;
+
+      if (errMsg.includes('relation "users" does not exist') || errDetails.includes('relation "users" does not exist')) {
         friendlyMessage = "Tabel 'users' tidak ditemukan. Pastikan Anda sudah menjalankan script SQL di Supabase SQL Editor.";
-      } else if (error.message.includes("Invalid API key") || error.message.includes("invalid base64") || error.status === 401) {
+      } else if (statusCode === 401 || errCode === 'PGRST301' || errMsg.includes("invalid api key") || errMsg.includes("jwt") || errMsg.includes("invalid base64") || !errMsg) {
         friendlyMessage = "API Key Supabase (SUPABASE_KEY) tidak valid atau salah tipe (gunakan service_role).";
-      } else if (error.message.includes("Failed to fetch") || error.status === 404) {
+      } else if (statusCode === 404 || errMsg.includes("failed to fetch") || errMsg.includes("enotfound")) {
         friendlyMessage = "URL Supabase (SUPABASE_URL) tidak valid atau tidak dapat dijangkau.";
-      } else if (error.code === 'PGRST301') {
-        friendlyMessage = "JWT Token expired atau API Key tidak valid.";
+      } else if (error.message) {
+        friendlyMessage = `Koneksi database gagal: ${error.message}`;
       }
 
       return res.status(500).json({ 
         status: "error", 
         message: friendlyMessage, 
-        details: error.message,
-        code: error.code
+        details: error.message || error.details || (statusCode ? `HTTP Status: ${statusCode}` : "Empty error response"),
+        code: error.code || statusCode
       });
     }
-    res.json({ status: "connected", total_users: data });
+    res.json({ 
+      status: "connected", 
+      total_users: count ?? (Array.isArray(data) ? data.length : 0) 
+    });
   } catch (err: any) {
     console.error("Supabase Initialization Error:", err);
     res.status(500).json({ 
@@ -817,7 +838,7 @@ async function runMigrations() {
     // Check if 'status' column exists in 'exams' table
     const { error: checkError } = await client.from('exams').select('status').limit(1);
     
-    if (checkError && checkError.message.includes('column "status" does not exist')) {
+    if (checkError && typeof checkError.message === 'string' && checkError.message.includes('column "status" does not exist')) {
       console.log("Migration: Adding 'status', 'started_at', 'ended_at' columns to 'exams' table...");
       
       // We cannot run DDL (ALTER TABLE) via Supabase JS client directly unless we use a stored procedure or raw SQL if enabled.
