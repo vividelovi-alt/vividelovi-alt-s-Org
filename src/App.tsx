@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sun, Moon } from 'lucide-react';
 import * as XLSX from 'xlsx-js-style';
+import { PRESISI_HEADER_LOGO, TUT_WURI_HANDAYANI_LOGO, HERO_BANNER_IMG } from './assets/branding';
 import { 
   User, 
   GraduationCap, 
@@ -1551,7 +1552,7 @@ export default function App() {
             {/* PRESISI Brand Lockup */}
             <div className="flex items-center gap-2.5">
               <img 
-                src="/assets/presisi_header_logo.png" 
+                src={PRESISI_HEADER_LOGO} 
                 alt="PRESISI - Penilaian Tepat dan Akurat"
                 className="h-8 md:h-10 w-auto object-contain select-none pointer-events-none"
                 referrerPolicy="no-referrer"
@@ -1565,7 +1566,7 @@ export default function App() {
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 md:w-9 md:h-9 shrink-0 flex items-center justify-center">
                 <img 
-                  src="/assets/tut_wuri_handayani.png" 
+                  src={TUT_WURI_HANDAYANI_LOGO} 
                   alt="Tut Wuri Handayani"
                   className="w-full h-full object-contain drop-shadow select-none pointer-events-none"
                   referrerPolicy="no-referrer"
@@ -1712,7 +1713,12 @@ export default function App() {
         {/* HERO BANNER SECTION (Clean, Dedicated Banner with Vector-Scaled Text) */}
         <div className="w-full rounded-2xl md:rounded-[2rem] overflow-hidden shadow-xl border border-blue-100/80 dark:border-slate-800 bg-white dark:bg-slate-900 relative">
           <svg viewBox="0 0 1847 294" className="w-full h-auto block select-none pointer-events-none" preserveAspectRatio="xMidYMid meet">
-            <image href="/assets/hero_banner.png" width="1847" height="294" />
+            <image 
+              href={HERO_BANNER_IMG} 
+              xlinkHref={HERO_BANNER_IMG} 
+              width="1847" 
+              height="294" 
+            />
             <text 
               x="222" 
               y="230" 
